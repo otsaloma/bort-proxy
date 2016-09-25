@@ -80,8 +80,8 @@ def icon():
     response.raise_for_status()
     # XXX: Inspect with imghdr and return in original format?
     image = resize_image(response.content, size)
-    cache.set(key, response.content)
-    return make_image_response(response.content, format)
+    cache.set(key, image)
+    return make_image_response(image, format)
 
 @app.route("/image")
 def image():
