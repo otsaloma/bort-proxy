@@ -38,6 +38,25 @@ cache.config_set("maxmemory", "30mb")
 cache.config_set("maxmemory-policy", "allkeys-lru")
 if app.debug: cache.flushdb()
 
+@app.route("/favicon")
+def favicon():
+    """Return a 16x16 favicon for website."""
+    domain = flask.request.args["url"]
+    domain = re.sub("/.*$", "", re.sub("^.*://", "", domain))
+    format = flask.request.args.get("format", "png")
+    key = "favicon:{}".format(domain)
+    image = cache.get(key)
+    if image is not None:
+        print("Found in cache: {}".format(key))
+        return make_image_response(image, format)
+    url = "https://www.google.com/s2/favicons?domain={domain}"
+    url = url.format(domain=urllib.parse.quote(domain))
+    print("Requesting {}".format(url))
+    response = requests.get(url, timeout=15)
+    response.raise_for_status()
+    cache.set(key, response.content)
+    return make_image_response(response.content, format)
+
 def get_image_cache_control():
     """Return a Cache-Control header for serving images."""
     return "public, max-age={:d}".format(random.randint(1, 3) * 86400)
