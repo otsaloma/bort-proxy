@@ -24,6 +24,7 @@ import base64
 import flask
 import io
 import json
+import os
 import PIL.Image
 import random
 import re
