@@ -60,7 +60,7 @@ def favicon():
     url = "https://www.google.com/s2/favicons?domain={domain}"
     url = url.format(domain=urllib.parse.quote(domain))
     print("Requesting {}".format(url))
-    response = requests.get(url, timeout=15)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     cache.set(key, response.content)
     return make_image_response(response.content, format)
@@ -103,7 +103,7 @@ def icon():
     url = "https://icons.better-idea.org/icon?url={domain}&size={size:d}"
     url = url.format(domain=urllib.parse.quote(domain), size=size)
     print("Requesting {}".format(url))
-    response = requests.get(url, timeout=15)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     # XXX: Inspect with imghdr and return in original format?
     image = resize_image(response.content, size)
@@ -122,7 +122,7 @@ def image():
         print("Found in cache: {}".format(key))
         return make_image_response(image, format)
     print("Requesting {}".format(url))
-    response = requests.get(url, timeout=15)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     image = resize_image(response.content, size)
     cache.set(key, image)
@@ -185,7 +185,7 @@ def twitter_icon():
     url = "https://twitter.com/{user}/profile_image?size=original"
     url = url.format(user=urllib.parse.quote(user))
     print("Requesting {}".format(url))
-    response = requests.get(url, timeout=15)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     image = resize_image(response.content, size)
     cache.set(key, image)
