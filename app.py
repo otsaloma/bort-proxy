@@ -33,7 +33,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 
 app = flask.Flask(__name__)
-cache = redis.from_url("redis://localhost")
+cache = redis.from_url(os.environ.get("REDISCLOUD_URL", "redis://localhost"))
 cache.config_set("maxmemory", "30mb")
 cache.config_set("maxmemory-policy", "allkeys-lru")
 if app.debug: cache.flushdb()
