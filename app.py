@@ -22,9 +22,11 @@
 
 import base64
 import flask
+import imghdr
 import io
 import json
 import os
+import pickle
 import PIL.Image
 import random
 import re
@@ -33,6 +35,7 @@ import requests
 import urllib.parse
 import xml.etree.ElementTree as ET
 
+FALLBACK_PNG = open("fallback.png", "rb").read()
 app = flask.Flask(__name__)
 
 if "REDISCLOUD_URL" in os.environ:
@@ -50,24 +53,36 @@ else:
 def favicon():
     """Return a 16x16 favicon for website."""
     domain = flask.request.args["url"]
-    domain = re.sub("/.*$", "", re.sub("^.*://", "", domain))
+    domain = re.sub("/.*$", "", re.sub("^.*?://", "", domain))
     format = flask.request.args.get("format", "png")
     key = "favicon:{}".format(domain)
-    image = cache.get(key)
-    if image is not None:
+    if cache.exists(key):
         print("Found in cache: {}".format(key))
-        return make_image_response(image, format)
+        image, ttl = get_from_cache(key)
+        return make_response(image, format, ttl)
     url = "https://www.google.com/s2/favicons?domain={domain}"
     url = url.format(domain=urllib.parse.quote(domain))
-    print("Requesting {}".format(url))
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    cache.set(key, response.content)
-    return make_image_response(response.content, format)
+    try:
+        print("Requesting {}".format(url))
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        if imghdr.what(None, response.content) != "png":
+            raise ValueError("Non-PNG data received")
+        cache.set(key, response.content, ex=7*86400)
+        return make_response(response.content, format)
+    except Exception as error:
+        print("Error requesting {}: {}".format(
+            flask.request.full_path, str(error)))
+        cache.set(key, FALLBACK_PNG, ex=43200)
+        return make_response(FALLBACK_PNG, format, 43200)
 
-def get_image_cache_control():
-    """Return a Cache-Control header for serving images."""
-    return "public, max-age={:d}".format(random.randint(1, 3) * 86400)
+def get_cache_control(max_age):
+    """Return a Cache-Control header for `max_age`."""
+    return "public, max-age={:d}".format(max_age)
+
+def get_from_cache(key):
+    """Return value, ttl for `key` from cache."""
+    return cache.get(key), cache.ttl(key)
 
 @app.route("/google-search-suggestions")
 def google_search_suggestions():
@@ -75,40 +90,54 @@ def google_search_suggestions():
     query = flask.request.args["query"]
     lang = flask.request.args.get("lang", "en")
     key = "google-search-suggestions:{}:{}".format(query, lang)
-    suggestions = cache.get(key)
-    if suggestions is not None:
+    if cache.exists(key):
         print("Found in cache: {}".format(key))
-        return make_json_response(suggestions)
+        data, ttl = get_from_cache(key)
+        return make_response(pickle.loads(data), "json", ttl)
     url = "https://suggestqueries.google.com/complete/search?output=toolbar&q={query}&hl={lang}"
     url = url.format(query=urllib.parse.quote_plus(query), lang=lang)
-    print("Requesting {}".format(url))
-    response = requests.get(url, timeout=5)
-    response.raise_for_status()
-    root = ET.fromstring(response.text)
-    suggestions = [x.get("data") for x in root.iter("suggestion")]
-    return make_json_response(suggestions)
+    try:
+        print("Requesting {}".format(url))
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        root = ET.fromstring(response.text)
+        suggestions = [x.get("data") for x in root.iter("suggestion")]
+        cache.set(key, pickle.dumps(suggestions), ex=3600)
+        return make_response(suggestions, "json")
+    except Exception as error:
+        print("Error requesting {}: {}".format(
+            flask.request.full_path, str(error)))
+        cache.set(key, pickle.dumps([]), ex=3600)
+        return make_response([], "json", 3600)
 
 @app.route("/icon")
 def icon():
     """Return favicon or apple-touch-icon for website."""
     domain = flask.request.args["url"]
-    domain = re.sub("/.*$", "", re.sub("^.*://", "", domain))
+    domain = re.sub("/.*$", "", re.sub("^.*?://", "", domain))
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
     key = "icon:{}:{:d}".format(domain, size)
-    image = cache.get(key)
-    if image is not None:
+    if cache.exists(key):
         print("Found in cache: {}".format(key))
-        return make_image_response(image, format)
+        image, ttl = get_from_cache(key)
+        return make_response(image, format, ttl)
     url = "https://icons.better-idea.org/icon?url={domain}&size={size:d}"
     url = url.format(domain=urllib.parse.quote(domain), size=size)
-    print("Requesting {}".format(url))
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    # XXX: Inspect with imghdr and return in original format?
-    image = resize_image(response.content, size)
-    cache.set(key, image)
-    return make_image_response(image, format)
+    try:
+        print("Requesting {}".format(url))
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        image = resize_image(response.content, size)
+        if imghdr.what(None, image) != "png":
+            raise ValueError("Non-PNG data received")
+        cache.set(key, image, ex=7*86400)
+        return make_response(image, format)
+    except Exception as error:
+        print("Error requesting {}: {}".format(
+            flask.request.full_path, str(error)))
+        cache.set(key, FALLBACK_PNG, ex=43200)
+        return make_response(FALLBACK_PNG, format, 43200)
 
 @app.route("/image")
 def image():
@@ -117,51 +146,52 @@ def image():
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
     key = "image:{}:{:d}".format(url, size)
-    image = cache.get(key)
-    if image is not None:
+    if cache.exists(key):
         print("Found in cache: {}".format(key))
-        return make_image_response(image, format)
-    print("Requesting {}".format(url))
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    image = resize_image(response.content, size)
-    cache.set(key, image)
-    return make_image_response(image, format)
+        image, ttl = get_from_cache(key)
+        return make_response(image, format, ttl)
+    try:
+        print("Requesting {}".format(url))
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        image = resize_image(response.content, size)
+        if imghdr.what(None, image) != "png":
+            raise ValueError("Non-PNG data received")
+        cache.set(key, image, ex=7*86400)
+        return make_response(image, format)
+    except Exception as error:
+        print("Error requesting {}: {}".format(
+            flask.request.full_path, str(error)))
+        cache.set(key, FALLBACK_PNG, ex=43200)
+        return make_response(FALLBACK_PNG, format, 43200)
 
-def make_image_response(image, format):
-    """Return response for `image` as `format`."""
-    return {
-        "base64": make_image_response_base64,
-        "png": make_image_response_png,
-    }[format](image)
-
-def make_image_response_base64(image):
-    """Return response for `image` as a base64 string."""
-    text = base64.b64encode(image)
-    return flask.Response(text, 200, {
-        "Content-Type": "text/plain",
-        "Content-Encoding": "UTF-8",
-        "Content-Length": str(len(text)),
-        "Cache-Control": get_image_cache_control(),
-    })
-
-def make_image_response_png(image):
-    """Return response for `image` as a PNG image."""
-    return flask.Response(image, 200, {
-        "Content-Type": "image/png",
-        "Content-Length": str(len(image)),
-        "Cache-Control": get_image_cache_control(),
-    })
-
-def make_json_response(obj):
-    """Return response for `obj` as a JSON string."""
-    text = json.dumps(obj, ensure_ascii=False)
-    return flask.Response(text, 200, {
-        "Content-Type": "application/json",
-        "Content-Encoding": "UTF-8",
-        "Content-Length": str(len(text)),
-        "Cache-Control": "public, max-age=3600",
-    })
+def make_response(data, format, max_age=None):
+    """Return response 200 for `data` as `format`."""
+    if format == "base64":
+        text = base64.b64encode(data)
+        max_age = max_age or random.randint(1,3) * 86400
+        return flask.Response(text, 200, {
+            "Content-Type": "text/plain",
+            "Content-Encoding": "UTF-8",
+            "Content-Length": str(len(text)),
+            "Cache-Control": get_cache_control(max_age),
+        })
+    if format == "json":
+        text = json.dumps(data, ensure_ascii=False)
+        max_age = max_age or 3600
+        return flask.Response(text, 200, {
+            "Content-Type": "application/json",
+            "Content-Encoding": "UTF-8",
+            "Content-Length": str(len(text)),
+            "Cache-Control": get_cache_control(max_age),
+        })
+    if format == "png":
+        max_age = max_age or random.randint(1,3) * 86400
+        return flask.Response(data, 200, {
+            "Content-Type": "image/png",
+            "Content-Length": str(len(data)),
+            "Cache-Control": get_cache_control(max_age),
+        })
 
 def resize_image(image, size):
     """Resize `image` to `size` and return PNG bytes."""
@@ -178,15 +208,23 @@ def twitter_icon():
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
     key = "twitter-icon:{}:{:d}".format(user, size)
-    image = cache.get(key)
-    if image is not None:
+    if cache.exists(key):
         print("Found in cache: {}".format(key))
-        return make_image_response(image, format)
+        image, ttl = get_from_cache(key)
+        return make_response(image, format, ttl)
     url = "https://twitter.com/{user}/profile_image?size=original"
     url = url.format(user=urllib.parse.quote(user))
-    print("Requesting {}".format(url))
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    image = resize_image(response.content, size)
-    cache.set(key, image)
-    return make_image_response(image, format)
+    try:
+        print("Requesting {}".format(url))
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        image = resize_image(response.content, size)
+        if imghdr.what(None, image) != "png":
+            raise ValueError("Non-PNG data received")
+        cache.set(key, image, ex=7*86400)
+        return make_response(image, format)
+    except Exception as error:
+        print("Error requesting {}: {}".format(
+            flask.request.full_path, str(error)))
+        cache.set(key, FALLBACK_PNG, ex=43200)
+        return make_response(FALLBACK_PNG, format, 43200)

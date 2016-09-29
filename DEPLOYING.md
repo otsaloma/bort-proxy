@@ -10,5 +10,6 @@ Deploying to Heroku
     - `git push origin master`
     - `git push heroku master`
 * Chek that server is running OK
+    - `./test.py http://XXX.herokuapp.com/`
     - `heroku logs --tail`
     - <https://dashboard.heroku.com/apps>
