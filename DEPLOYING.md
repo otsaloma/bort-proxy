@@ -9,7 +9,7 @@ Deploying to Heroku
     - `git status`
     - `git push origin master`
     - `git push heroku master`
-* Chek that server is running OK
+* Chek that server is running OK and clear the Redis cache if needed
     - `./test.py http://XXX.herokuapp.com/`
     - `heroku logs --tail`
     - <https://dashboard.heroku.com/apps>
