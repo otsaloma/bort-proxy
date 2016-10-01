@@ -128,7 +128,7 @@ def icon():
         print("Requesting {}".format(url))
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        image = resize_image_maybe(response.content, size)
+        image = resize_image(response.content, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=7*86400)
@@ -154,7 +154,7 @@ def image():
         print("Requesting {}".format(url))
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        image = resize_image_maybe(response.content, size)
+        image = resize_image(response.content, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=7*86400)
@@ -193,13 +193,12 @@ def make_response(data, format, max_age=None):
             "Cache-Control": get_cache_control(max_age),
         })
 
-def resize_image_maybe(image, size, threshold=2):
+def resize_image(image, size, threshold=2):
     """Resize `image` to `size` and return PNG bytes."""
     pi = PIL.Image.open(io.BytesIO(image))
-    # Avoid scaling e.g. a 57x57 apple-touch-icon to 48x48
-    # as the quality would not be good.
-    if min(pi.width, pi.height) > threshold * size:
-        pi.thumbnail((size, size), PIL.Image.LANCZOS)
+    if not pi.mode in ("RGB", "RGBA"):
+        pi = pi.convert("RGBA")
+    pi.thumbnail((size, size), PIL.Image.BICUBIC)
     out = io.BytesIO()
     pi.save(out, "PNG")
     return out.getvalue()
@@ -221,7 +220,7 @@ def twitter_icon():
         print("Requesting {}".format(url))
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        image = resize_image_maybe(response.content, size)
+        image = resize_image(response.content, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=7*86400)
