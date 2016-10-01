@@ -49,6 +49,34 @@ else:
     if app.debug: cache.flushdb()
 
 
+@app.route("/facebook-icon")
+def facebook_icon():
+    """Return a downscaled Facebook profile image."""
+    user = flask.request.args["user"]
+    size = int(flask.request.args["size"])
+    format = flask.request.args.get("format", "png")
+    key = "facebook-icon:{}:{:d}".format(user, size)
+    if cache.exists(key):
+        print("Found in cache: {}".format(key))
+        image, ttl = get_from_cache(key)
+        return make_response(image, format, ttl)
+    url = "https://graph.facebook.com/{user}/picture?type=large"
+    url = url.format(user=urllib.parse.quote(user))
+    try:
+        print("Requesting {}".format(url))
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        image = resize_image(response.content, size)
+        if imghdr.what(None, image) != "png":
+            raise ValueError("Non-PNG data received")
+        cache.set(key, image, ex=7*86400)
+        return make_response(image, format)
+    except Exception as error:
+        print("Error requesting {}: {}".format(
+            flask.request.full_path, str(error)))
+        cache.set(key, FALLBACK_PNG, ex=43200)
+        return make_response(FALLBACK_PNG, format, 43200)
+
 @app.route("/favicon")
 def favicon():
     """Return a 16x16 favicon for website."""

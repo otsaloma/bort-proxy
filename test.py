@@ -10,6 +10,9 @@ def test(path):
     print(response.status_code)
     response.raise_for_status()
 
+test("facebook-icon?user=dropbox&size=96")
+test("facebook-icon?user=dropbox&size=96&format=base64")
+test("facebook-icon?user=dropbox&size=96&format=png")
 test("favicon?url=google.com")
 test("favicon?url=google.com&format=base64")
 test("favicon?url=google.com&format=png")
