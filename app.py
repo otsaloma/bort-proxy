@@ -48,6 +48,17 @@ else:
     cache.config_set("maxmemory-policy", "allkeys-lru")
     if app.debug: cache.flushdb()
 
+# Cache HTTP connections for better performance.
+# https://urllib3.readthedocs.io/en/latest/advanced-usage.html#customizing-pool-behavior
+adapter = requests.adapters.HTTPAdapter(pool_connections=10,
+                                        pool_maxsize=100,
+                                        max_retries=0,
+                                        pool_block=False)
+
+rs = requests.Session()
+rs.mount("http://", adapter)
+rs.mount("https://", adapter)
+
 
 @app.route("/facebook-icon")
 def facebook_icon():
@@ -64,7 +75,7 @@ def facebook_icon():
     url = url.format(user=urllib.parse.quote(user))
     try:
         print("Requesting {}".format(url))
-        response = requests.get(url, timeout=10)
+        response = rs.get(url, timeout=10)
         response.raise_for_status()
         image = resize_image(response.content, size)
         if imghdr.what(None, image) != "png":
@@ -92,7 +103,7 @@ def favicon():
     url = url.format(domain=urllib.parse.quote(domain))
     try:
         print("Requesting {}".format(url))
-        response = requests.get(url, timeout=10)
+        response = rs.get(url, timeout=10)
         response.raise_for_status()
         if imghdr.what(None, response.content) != "png":
             raise ValueError("Non-PNG data received")
@@ -126,7 +137,7 @@ def google_search_suggestions():
     url = url.format(query=urllib.parse.quote_plus(query), lang=lang)
     try:
         print("Requesting {}".format(url))
-        response = requests.get(url, timeout=5)
+        response = rs.get(url, timeout=5)
         response.raise_for_status()
         root = ET.fromstring(response.text)
         suggestions = [x.get("data") for x in root.iter("suggestion")]
@@ -154,7 +165,7 @@ def icon():
     url = url.format(domain=urllib.parse.quote(domain), size=size)
     try:
         print("Requesting {}".format(url))
-        response = requests.get(url, timeout=10)
+        response = rs.get(url, timeout=10)
         response.raise_for_status()
         image = resize_image(response.content, size)
         if imghdr.what(None, image) != "png":
@@ -180,7 +191,7 @@ def image():
         return make_response(image, format, ttl)
     try:
         print("Requesting {}".format(url))
-        response = requests.get(url, timeout=10)
+        response = rs.get(url, timeout=10)
         response.raise_for_status()
         image = resize_image(response.content, size)
         if imghdr.what(None, image) != "png":
@@ -246,7 +257,7 @@ def twitter_icon():
     url = url.format(user=urllib.parse.quote(user))
     try:
         print("Requesting {}".format(url))
-        response = requests.get(url, timeout=10)
+        response = rs.get(url, timeout=10)
         response.raise_for_status()
         image = resize_image(response.content, size)
         if imghdr.what(None, image) != "png":
