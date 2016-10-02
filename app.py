@@ -21,6 +21,7 @@
 # THE SOFTWARE.
 
 import base64
+import contextlib
 import flask
 import imghdr
 import io
@@ -37,6 +38,7 @@ import xml.etree.ElementTree as ET
 
 FALLBACK_PNG = open("fallback.png", "rb").read()
 app = flask.Flask(__name__)
+blacklist = set()
 
 if "REDISCLOUD_URL" in os.environ:
     # Production config values are set in the dashboard.
@@ -75,9 +77,8 @@ def facebook_icon():
     url = url.format(user=urllib.parse.quote(user))
     try:
         print("Requesting {}".format(url))
-        response = rs.get(url, timeout=10)
-        response.raise_for_status()
-        image = resize_image(response.content, size)
+        image = request_image(url, max_size=5)
+        image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=7*86400)
@@ -103,12 +104,11 @@ def favicon():
     url = url.format(domain=urllib.parse.quote(domain))
     try:
         print("Requesting {}".format(url))
-        response = rs.get(url, timeout=10)
-        response.raise_for_status()
-        if imghdr.what(None, response.content) != "png":
+        image = request_image(url, max_size=1)
+        if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
-        cache.set(key, response.content, ex=7*86400)
-        return make_response(response.content, format)
+        cache.set(key, image, ex=7*86400)
+        return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
@@ -165,9 +165,8 @@ def icon():
     url = url.format(domain=urllib.parse.quote(domain), size=size)
     try:
         print("Requesting {}".format(url))
-        response = rs.get(url, timeout=10)
-        response.raise_for_status()
-        image = resize_image(response.content, size)
+        image = request_image(url, max_size=1)
+        image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=7*86400)
@@ -191,9 +190,8 @@ def image():
         return make_response(image, format, ttl)
     try:
         print("Requesting {}".format(url))
-        response = rs.get(url, timeout=10)
-        response.raise_for_status()
-        image = resize_image(response.content, size)
+        image = request_image(url, max_size=1)
+        image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=7*86400)
@@ -232,6 +230,23 @@ def make_response(data, format, max_age=None):
             "Cache-Control": get_cache_control(max_age),
         })
 
+def request_image(url, max_size=1, timeout=10):
+    """Request and return image at `url` at most `max_size` MB."""
+    # Avoid getting caught reading insanely large files.
+    # http://docs.python-requests.org/en/master/user/advanced/#body-content-workflow
+    if url in blacklist:
+        raise ValueError("URL blacklisted")
+    max_size = max_size * 1024 * 1024
+    with contextlib.closing(requests.get(
+            url, timeout=timeout, stream=True)) as response:
+        response.raise_for_status()
+        if (response.headers["content-type"].startswith("image/")
+            and int(response.headers["content-length"]) < max_size):
+            image = response.raw.read(max_size+1, decode_content=True)
+            if len(image) <= max_size: return image
+        blacklist.add(url)
+        raise ValueError("Not an image or too large")
+
 def resize_image(image, size, threshold=2):
     """Resize `image` to `size` and return PNG bytes."""
     pi = PIL.Image.open(io.BytesIO(image))
@@ -257,9 +272,8 @@ def twitter_icon():
     url = url.format(user=urllib.parse.quote(user))
     try:
         print("Requesting {}".format(url))
-        response = rs.get(url, timeout=10)
-        response.raise_for_status()
-        image = resize_image(response.content, size)
+        image = request_image(url, max_size=5)
+        image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=7*86400)
