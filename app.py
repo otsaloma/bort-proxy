@@ -240,12 +240,14 @@ def request_image(url, max_size=1, timeout=10):
     with contextlib.closing(requests.get(
             url, timeout=timeout, stream=True)) as response:
         response.raise_for_status()
-        if (response.headers["content-type"].startswith("image/")
-            and int(response.headers["content-length"]) < max_size):
-            image = response.raw.read(max_size+1, decode_content=True)
-            if len(image) <= max_size: return image
+        if ("content-length" in response.headers
+            and response.headers["content-length"].isdigit()
+            and int(response.headers["content-length"]) > max_size):
+            raise ValueError("Too large")
+        image = response.raw.read(max_size+1, decode_content=True)
+        if len(image) <= max_size: return image
         blacklist.add(url)
-        raise ValueError("Not an image or too large")
+        raise ValueError("Too large")
 
 def resize_image(image, size, threshold=2):
     """Resize `image` to `size` and return PNG bytes."""
