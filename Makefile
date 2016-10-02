@@ -14,8 +14,4 @@ clean:
 run:
 	flask run
 
-tarball:
-	$(MAKE) clean
-	tar -C .. -cJf ../$(NAME)-`date +%Y%m%d`.tar.xz $(NAME)
-
-.PHONY: check clean run tarball
+.PHONY: check clean run
