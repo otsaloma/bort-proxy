@@ -253,6 +253,11 @@ def resize_image(image, size, threshold=2):
     if not pi.mode in ("RGB", "RGBA"):
         pi = pi.convert("RGBA")
     pi.thumbnail((size, size), PIL.Image.BICUBIC)
+    if pi.width != pi.height:
+        # Add transparent margins to make a square image.
+        bg = PIL.Image.new("RGBA", (size, size), (255, 255, 255, 0))
+        bg.paste(pi, ((size - pi.width) // 2, (size - pi.height) // 2))
+        pi = bg
     out = io.BytesIO()
     pi.save(out, "PNG")
     return out.getvalue()
