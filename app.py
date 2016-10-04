@@ -81,12 +81,12 @@ def facebook_icon():
         image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
-        cache.set(key, image, ex=7*86400)
+        cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=43200)
+        cache.set(key, FALLBACK_PNG, ex=21600)
         return make_response(FALLBACK_PNG, format, 43200)
 
 @app.route("/favicon")
@@ -107,12 +107,12 @@ def favicon():
         image = request_image(url, max_size=1)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
-        cache.set(key, image, ex=7*86400)
+        cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=43200)
+        cache.set(key, FALLBACK_PNG, ex=21600)
         return make_response(FALLBACK_PNG, format, 43200)
 
 def get_cache_control(max_age):
@@ -169,12 +169,12 @@ def icon():
         image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
-        cache.set(key, image, ex=7*86400)
+        cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=43200)
+        cache.set(key, FALLBACK_PNG, ex=21600)
         return make_response(FALLBACK_PNG, format, 43200)
 
 @app.route("/image")
@@ -194,19 +194,19 @@ def image():
         image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
-        cache.set(key, image, ex=7*86400)
+        cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=43200)
+        cache.set(key, FALLBACK_PNG, ex=21600)
         return make_response(FALLBACK_PNG, format, 43200)
 
 def make_response(data, format, max_age=None):
     """Return response 200 for `data` as `format`."""
     if format == "base64":
         text = base64.b64encode(data)
-        max_age = max_age or random.randint(1,3) * 86400
+        max_age = max_age or random.randint(1, 3) * 86400
         return flask.Response(text, 200, {
             "Content-Type": "text/plain",
             "Content-Encoding": "UTF-8",
@@ -223,7 +223,7 @@ def make_response(data, format, max_age=None):
             "Cache-Control": get_cache_control(max_age),
         })
     if format == "png":
-        max_age = max_age or random.randint(1,3) * 86400
+        max_age = max_age or random.randint(1, 3) * 86400
         return flask.Response(data, 200, {
             "Content-Type": "image/png",
             "Content-Length": str(len(data)),
@@ -264,6 +264,10 @@ def resize_image(image, size, threshold=2):
     pi.save(out, "PNG")
     return out.getvalue()
 
+def rex(a, b):
+    """Return a random amount of seconds between a and b days."""
+    return random.randint(int(a*86400), int(b*86400))
+
 @app.route("/twitter-icon")
 def twitter_icon():
     """Return a downscaled Twitter profile image."""
@@ -283,10 +287,10 @@ def twitter_icon():
         image = resize_image(image, size)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
-        cache.set(key, image, ex=7*86400)
+        cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=43200)
+        cache.set(key, FALLBACK_PNG, ex=21600)
         return make_response(FALLBACK_PNG, format, 43200)
