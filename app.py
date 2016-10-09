@@ -208,6 +208,7 @@ def make_response(data, format, max_age=None):
         text = base64.b64encode(data)
         max_age = max_age or random.randint(1, 3) * 86400
         return flask.Response(text, 200, {
+            "Access-Control-Allow-Origin": "*",
             "Content-Type": "text/plain",
             "Content-Encoding": "UTF-8",
             "Content-Length": str(len(text)),
@@ -217,6 +218,7 @@ def make_response(data, format, max_age=None):
         text = json.dumps(data, ensure_ascii=False)
         max_age = max_age or 3600
         return flask.Response(text, 200, {
+            "Access-Control-Allow-Origin": "*",
             "Content-Type": "application/json",
             "Content-Encoding": "UTF-8",
             "Content-Length": str(len(text)),
@@ -225,6 +227,7 @@ def make_response(data, format, max_age=None):
     if format == "png":
         max_age = max_age or random.randint(1, 3) * 86400
         return flask.Response(data, 200, {
+            "Access-Control-Allow-Origin": "*",
             "Content-Type": "image/png",
             "Content-Length": str(len(data)),
             "Cache-Control": get_cache_control(max_age),
