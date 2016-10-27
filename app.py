@@ -86,8 +86,8 @@ def facebook_icon():
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=21600)
-        return make_response(FALLBACK_PNG, format, 43200)
+        cache.set(key, FALLBACK_PNG, ex=7200)
+        return make_response(FALLBACK_PNG, format, 7200)
 
 @app.route("/favicon")
 def favicon():
@@ -112,8 +112,8 @@ def favicon():
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=21600)
-        return make_response(FALLBACK_PNG, format, 43200)
+        cache.set(key, FALLBACK_PNG, ex=7200)
+        return make_response(FALLBACK_PNG, format, 7200)
 
 def get_cache_control(max_age):
     """Return a Cache-Control header for `max_age`."""
@@ -174,8 +174,8 @@ def icon():
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=21600)
-        return make_response(FALLBACK_PNG, format, 43200)
+        cache.set(key, FALLBACK_PNG, ex=7200)
+        return make_response(FALLBACK_PNG, format, 7200)
 
 @app.route("/image")
 def image():
@@ -199,8 +199,8 @@ def image():
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=21600)
-        return make_response(FALLBACK_PNG, format, 43200)
+        cache.set(key, FALLBACK_PNG, ex=7200)
+        return make_response(FALLBACK_PNG, format, 7200)
 
 def make_response(data, format, max_age=None):
     """Return response 200 for `data` as `format`."""
@@ -295,5 +295,5 @@ def twitter_icon():
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
-        cache.set(key, FALLBACK_PNG, ex=21600)
-        return make_response(FALLBACK_PNG, format, 43200)
+        cache.set(key, FALLBACK_PNG, ex=7200)
+        return make_response(FALLBACK_PNG, format, 7200)
