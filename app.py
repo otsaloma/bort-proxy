@@ -24,6 +24,7 @@ import base64
 import bs4
 import contextlib
 import flask
+import functools
 import imghdr
 import io
 import json
@@ -38,7 +39,7 @@ import traceback
 import urllib.parse
 import xml.etree.ElementTree as ET
 
-FALLBACK_PNG = open("fallback.png", "rb").read()
+FALLBACK_PNG = open("letter-icons/x.png", "rb").read()
 
 LINK_REL_PATTERNS = [
     re.compile("^apple-touch-icon$"),
@@ -148,6 +149,23 @@ def get_from_cache(key):
     """Return value, ttl for `key` from cache."""
     return cache.get(key), cache.ttl(key)
 
+def get_letter(url):
+    """Return letter to represent `url`."""
+    if not "://" in url:
+        url = "http://{}".format(url)
+    url = urllib.parse.urlparse(url).netloc
+    url = url.split(".")
+    url = url[-2] if len(url) > 1 else url[0]
+    return url[0].lower() if url else "x"
+
+@functools.lru_cache(256)
+def get_letter_icon(url):
+    """Return letter icon PNG blob for `url`."""
+    letter = get_letter(url)
+    fname = "letter-icons/{}.png".format(letter)
+    with open(fname, "rb") as f:
+        return f.read()
+
 def get_page(url):
     """Return evaluated `url`, HTML page as text."""
     if "://" in url:
@@ -197,9 +215,11 @@ def icon():
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
     try:
-        print("Parsing {}".format(url))
-        icons = list(find_icons(url))
-        sorted(icons, key=lambda x: x.get("size", 0) or 1000)
+        # Allow requesting fallback letter icons as e.g. url=a.
+        if "." in url and len(url) > 3:
+            print("Parsing {}".format(url))
+            icons = list(find_icons(url))
+            sorted(icons, key=lambda x: x.get("size", 0) or 1000)
     except Exception as error:
         print("Error parsing {}: {}".format(
             flask.request.full_path, str(error)))
@@ -223,12 +243,10 @@ def icon():
         except Exception as error:
             print("Error requesting {}: {}".format(
                 icon["url"], str(error)))
-    # TODO: Return lettericon?
-    print("Error requesting {}: No icon found".format(
-        flask.request.full_path))
-    image = resize_image(FALLBACK_PNG, size)
-    cache.set(key, image, ex=7200)
-    return make_response(image, format, 7200)
+    # Fall back on letter icons.
+    image = resize_image(get_letter_icon(url), size)
+    cache.set(key, image, ex=rex(3, 5))
+    return make_response(image, format)
 
 @app.route("/image")
 def image():
