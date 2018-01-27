@@ -214,18 +214,14 @@ def icon():
         print("Found in cache: {}".format(key))
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
+    icons = []
     try:
-        # Allow requesting fallback letter icons as e.g. url=a.
-        if "." in url and len(url) > 3:
-            print("Parsing {}".format(url))
-            icons = list(find_icons(url))
-            sorted(icons, key=lambda x: x.get("size", 0) or 1000)
+        print("Parsing {}".format(url))
+        icons = list(find_icons(url))
+        icons.sort(key=lambda x: x.get("size", 0) or 1000)
     except Exception as error:
         print("Error parsing {}: {}".format(
             flask.request.full_path, str(error)))
-        image = resize_image(FALLBACK_PNG, size)
-        cache.set(key, image, ex=7200)
-        return make_response(image, format, 7200)
     for icon in icons:
         icon.setdefault("size", 0)
         if 0 < icon["size"] < size: continue
