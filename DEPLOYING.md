@@ -12,4 +12,4 @@ Deploying to Heroku
 * Check that server is running OK and clear the Redis cache if needed
     - `./test.py http://XXX.herokuapp.com/`
     - `heroku logs --tail`
-    - <https://dashboard.heroku.com/apps>
+    - `redis-cli -h HOST -p PORT -a PASSWORD flushall`
