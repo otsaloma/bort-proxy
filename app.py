@@ -134,9 +134,9 @@ def find_icons(url):
     soup = bs4.BeautifulSoup(page, "html.parser")
     for pattern in LINK_REL_PATTERNS:
         for tag in soup.find_all("link", dict(rel=pattern)):
-            url = urllib.parse.urljoin(url, tag.attrs["href"])
+            href = urllib.parse.urljoin(url, tag.attrs["href"])
             size = tag.attrs.get("sizes", "0x0")
-            yield dict(url=url, size=int(size.split("x")[0]))
+            yield dict(url=href, size=int(size.split("x")[0]))
     # Fall back on looking for icons at the server root.
     yield dict(url=urllib.parse.urljoin(url, "/apple-touch-icon.png"))
     yield dict(url=urllib.parse.urljoin(url, "/apple-touch-icon-precomposed.png"))
