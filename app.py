@@ -159,9 +159,8 @@ def get_letter(url):
     return url[0].lower() if url else "x"
 
 @functools.lru_cache(256)
-def get_letter_icon(url):
+def get_letter_icon(letter):
     """Return letter icon PNG blob for `url`."""
-    letter = get_letter(url)
     fname = "letter-icons/{}.png".format(letter)
     with open(fname, "rb") as f:
         return f.read()
@@ -240,7 +239,8 @@ def icon():
             print("Error requesting {}: {}".format(
                 icon["url"], str(error)))
     # Fall back on letter icons.
-    image = resize_image(get_letter_icon(url), size)
+    image = get_letter_icon(get_letter(url))
+    image = resize_image(image, size)
     cache.set(key, image, ex=rex(3, 5))
     return make_response(image, format)
 
