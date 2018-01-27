@@ -21,6 +21,7 @@
 # THE SOFTWARE.
 
 import base64
+import bs4
 import contextlib
 import flask
 import imghdr
@@ -33,10 +34,19 @@ import random
 import re
 import redis
 import requests
+import traceback
 import urllib.parse
 import xml.etree.ElementTree as ET
 
 FALLBACK_PNG = open("fallback.png", "rb").read()
+
+LINK_REL_PATTERNS = [
+    re.compile("^apple-touch-icon$"),
+    re.compile("^apple-touch-icon-precomposed$"),
+    re.compile("^icon$"),
+    re.compile("^shortcut icon$"),
+]
+
 app = flask.Flask(__name__)
 blacklist = set()
 
@@ -117,6 +127,19 @@ def favicon():
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
 
+def find_icons(url):
+    """Yield icon entries specified in the HTML HEAD of `url`."""
+    url, page = get_page(url)
+    soup = bs4.BeautifulSoup(page, "html.parser")
+    for pattern in LINK_REL_PATTERNS:
+        for tag in soup.find_all("link", dict(rel=pattern)):
+            url = urllib.parse.urljoin(url, tag.attrs["href"])
+            size = tag.attrs.get("sizes", "0x0")
+            yield dict(url=url, size=int(size.split("x")[0]))
+    # Fall back on looking for icons at the server root.
+    yield dict(url=urllib.parse.urljoin(url, "/apple-touch-icon.png"))
+    yield dict(url=urllib.parse.urljoin(url, "/apple-touch-icon-precomposed.png"))
+
 def get_cache_control(max_age):
     """Return a Cache-Control header for `max_age`."""
     return "public, max-age={:d}".format(max_age)
@@ -124,6 +147,17 @@ def get_cache_control(max_age):
 def get_from_cache(key):
     """Return value, ttl for `key` from cache."""
     return cache.get(key), cache.ttl(key)
+
+def get_page(url):
+    """Return evaluated `url`, HTML page as text."""
+    if "://" in url:
+        response = rs.get(url)
+        response.raise_for_status()
+        return response.url, response.text
+    for scheme in ("https", "http"):
+        with silent(Exception):
+            return get_page("{}://{}".format(scheme, url))
+    raise Exception("Failed to get page")
 
 @app.route("/google-search-suggestions")
 def google_search_suggestions():
@@ -154,31 +188,43 @@ def google_search_suggestions():
 @app.route("/icon")
 def icon():
     """Return favicon or apple-touch-icon for website."""
-    domain = flask.request.args["url"]
-    domain = re.sub("/.*$", "", re.sub("^.*?://", "", domain))
+    url = flask.request.args["url"]
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
-    key = "icon:{}:{:d}".format(domain, size)
+    key = "icon:{}:{:d}".format(url, size)
     if cache.exists(key):
         print("Found in cache: {}".format(key))
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
-    url = "https://icons.better-idea.org/icon?url={domain}&size={size:d}"
-    url = url.format(domain=urllib.parse.quote(domain), size=size)
     try:
-        print("Requesting {}".format(url))
-        image = request_image(url, max_size=1)
-        image = resize_image(image, size)
-        if imghdr.what(None, image) != "png":
-            raise ValueError("Non-PNG data received")
-        cache.set(key, image, ex=rex(3, 5))
-        return make_response(image, format)
+        print("Parsing {}".format(url))
+        icons = list(find_icons(url))
+        sorted(icons, key=lambda x: x.get("size", 0) or 1000)
     except Exception as error:
-        print("Error requesting {}: {}".format(
+        print("Error parsing {}: {}".format(
             flask.request.full_path, str(error)))
         image = resize_image(FALLBACK_PNG, size)
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
+    for icon in icons:
+        icon.setdefault("size", 0)
+        if 0 < icon["size"] < size: continue
+        try:
+            print("Requesting {}".format(icon["url"]))
+            image = request_image(icon["url"])
+            pi = PIL.Image.open(io.BytesIO(image))
+            print("Found {}x{}".format(pi.width, pi.height))
+            if min(pi.width, pi.height) < size: continue
+            image = resize_image(image, size)
+            if imghdr.what(None, image) != "png":
+                raise ValueError("Non-PNG data received")
+            cache.set(key, image, ex=rex(3, 5))
+            return make_response(image, format)
+        except Exception as error:
+            print("Error requesting {}: {}".format(
+                icon["url"], str(error)))
+    # TODO: Return lettericon?
+    raise Exception("No suitable icon found")
 
 @app.route("/image")
 def image():
@@ -274,6 +320,14 @@ def resize_image(image, size, threshold=2):
 def rex(a, b):
     """Return a random amount of seconds between a and b days."""
     return random.randint(int(a*86400), int(b*86400))
+
+@contextlib.contextmanager
+def silent(*exceptions, tb=False):
+    """Try to execute body, ignoring `exceptions`."""
+    try:
+        yield
+    except exceptions:
+        if tb: traceback.print_exc()
 
 @app.route("/twitter-icon")
 def twitter_icon():
