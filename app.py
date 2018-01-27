@@ -224,7 +224,11 @@ def icon():
             print("Error requesting {}: {}".format(
                 icon["url"], str(error)))
     # TODO: Return lettericon?
-    raise Exception("No suitable icon found")
+    print("Error requesting {}: No icon found".format(
+        flask.request.full_path))
+    image = resize_image(FALLBACK_PNG, size)
+    cache.set(key, image, ex=7200)
+    return make_response(image, format, 7200)
 
 @app.route("/image")
 def image():
