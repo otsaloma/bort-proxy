@@ -160,9 +160,8 @@ def get_letter(url):
 
 @functools.lru_cache(256)
 def get_letter_icon(letter):
-    """Return letter icon PNG blob for `url`."""
-    fname = "letter-icons/{}.png".format(letter)
-    with open(fname, "rb") as f:
+    """Return letter icon PNG bytes for `url`."""
+    with open("letter-icons/{}.png".format(letter), "rb") as f:
         return f.read()
 
 def get_page(url):
@@ -204,7 +203,7 @@ def google_search_suggestions():
 
 @app.route("/icon")
 def icon():
-    """Return favicon or apple-touch-icon for website."""
+    """Return apple-touch-icon or favicon for website."""
     url = flask.request.args["url"]
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
@@ -213,7 +212,6 @@ def icon():
         print("Found in cache: {}".format(key))
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
-    icons = []
     try:
         print("Parsing {}".format(url))
         icons = list(find_icons(url))
@@ -221,14 +219,15 @@ def icon():
     except Exception as error:
         print("Error parsing {}: {}".format(
             flask.request.full_path, str(error)))
+        icons = []
     for icon in icons:
+        # Ignore icons with a known size less than requested.
         icon.setdefault("size", 0)
         if 0 < icon["size"] < size: continue
         try:
             print("Requesting {}".format(icon["url"]))
             image = request_image(icon["url"])
             pi = PIL.Image.open(io.BytesIO(image))
-            print("Found {}x{}".format(pi.width, pi.height))
             if min(pi.width, pi.height) < size: continue
             image = resize_image(image, size)
             if imghdr.what(None, image) != "png":
@@ -238,7 +237,7 @@ def icon():
         except Exception as error:
             print("Error requesting {}: {}".format(
                 icon["url"], str(error)))
-    # Fall back on letter icons.
+    # Fall back on letter icons for domain.
     image = get_letter_icon(get_letter(url))
     image = resize_image(image, size)
     cache.set(key, image, ex=rex(3, 5))

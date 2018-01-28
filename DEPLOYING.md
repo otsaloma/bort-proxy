@@ -7,7 +7,7 @@ Deploying to Heroku
 * Do final quality checks and upload
     - `make check`
     - `git status`
-    - `git push origin master`
+    - `git push`
     - `git push heroku master`
 * Check that server is running OK and clear the Redis cache if needed
     - `./test.py http://XXX.herokuapp.com/`
