@@ -138,8 +138,9 @@ def find_icons(url):
             size = tag.attrs.get("sizes", "0x0")
             yield dict(url=href, size=int(size.split("x")[0]))
     # Fall back on looking for icons at the server root.
-    yield dict(url=urllib.parse.urljoin(url, "/apple-touch-icon.png"))
-    yield dict(url=urllib.parse.urljoin(url, "/apple-touch-icon-precomposed.png"))
+    join = lambda x: urllib.parse.urljoin(url, x)
+    yield dict(url=join("/apple-touch-icon.png"), fallback=True)
+    yield dict(url=join("/apple-touch-icon-precomposed.png"), fallback=True)
 
 def get_cache_control(max_age):
     """Return a Cache-Control header for `max_age`."""
@@ -242,6 +243,29 @@ def icon():
     image = resize_image(image, size)
     cache.set(key, image, ex=rex(3, 5))
     return make_response(image, format)
+
+@app.route("/icons")
+def icons():
+    """Return JSON listing of icons for website."""
+    url = flask.request.args["url"]
+    key = "icons:{}".format(url)
+    if cache.exists(key):
+        print("Found in cache: {}".format(key))
+        data, ttl = get_from_cache(key)
+        return make_response(pickle.loads(data), "json", ttl)
+    try:
+        print("Parsing {}".format(url))
+        icons = list(find_icons(url))
+    except Exception as error:
+        print("Error parsing {}: {}".format(
+            flask.request.full_path, str(error)))
+        icons = []
+    for i in list(range(len(icons) - 1, -1, -1)):
+        if icons[i].get("size", 1) < 1: del icons[i]["size"]
+        if icons[i].get("fallback", False): del icons[i]
+    data = dict(icons=icons)
+    cache.set(key, pickle.dumps(data), ex=300)
+    return make_response(data, "json", 300)
 
 @app.route("/image")
 def image():
