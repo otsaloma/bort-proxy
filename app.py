@@ -165,10 +165,10 @@ def get_letter_icon(letter):
     with open("letter-icons/{}.png".format(letter), "rb") as f:
         return f.read()
 
-def get_page(url):
+def get_page(url, timeout=15):
     """Return evaluated `url`, HTML page as text."""
     if "://" in url:
-        response = rs.get(url)
+        response = rs.get(url, timeout=timeout)
         response.raise_for_status()
         return response.url, response.text
     for scheme in ("https", "http"):
@@ -324,14 +324,14 @@ def make_response(data, format, max_age=None):
             "Cache-Control": get_cache_control(max_age),
         })
 
-def request_image(url, max_size=1, timeout=10):
+def request_image(url, max_size=1, timeout=15):
     """Request and return image at `url` at most `max_size` MB."""
     # Avoid getting caught reading insanely large files.
     # http://docs.python-requests.org/en/master/user/advanced/#body-content-workflow
     if url in blacklist:
         raise ValueError("URL blacklisted")
     max_size = max_size * 1024 * 1024
-    with contextlib.closing(requests.get(
+    with contextlib.closing(rs.get(
             url, timeout=timeout, stream=True)) as response:
         response.raise_for_status()
         if ("content-length" in response.headers
