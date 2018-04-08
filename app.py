@@ -152,7 +152,7 @@ def get_from_cache(key):
 
 def get_letter(url):
     """Return letter to represent `url`."""
-    if not "://" in url:
+    if "://" not in url:
         url = "http://{}".format(url)
     url = urllib.parse.urlparse(url).netloc
     url = url.split(".")
@@ -334,9 +334,9 @@ def request_image(url, max_size=1, timeout=15):
     with contextlib.closing(rs.get(
             url, timeout=timeout, stream=True)) as response:
         response.raise_for_status()
-        if ("content-length" in response.headers
-            and response.headers["content-length"].isdigit()
-            and int(response.headers["content-length"]) > max_size):
+        if ("content-length" in response.headers and
+            response.headers["content-length"].isdigit() and
+            int(response.headers["content-length"]) > max_size):
             raise ValueError("Too large")
         image = response.raw.read(max_size+1, decode_content=True)
         if len(image) <= max_size: return image
@@ -346,7 +346,7 @@ def request_image(url, max_size=1, timeout=15):
 def resize_image(image, size, threshold=2):
     """Resize `image` to `size` and return PNG bytes."""
     pi = PIL.Image.open(io.BytesIO(image))
-    if not pi.mode in ("RGB", "RGBA"):
+    if pi.mode not in ("RGB", "RGBA"):
         pi = pi.convert("RGBA")
     pi.thumbnail((size, size), PIL.Image.BICUBIC)
     if pi.width != pi.height:
