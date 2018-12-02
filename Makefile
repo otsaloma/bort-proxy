@@ -1,4 +1,4 @@
-# -*- coding: us-ascii-unix -*-
+# -*- coding: utf-8-unix -*-
 
 NAME = `basename $$PWD`
 
