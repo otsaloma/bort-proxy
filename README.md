@@ -1,15 +1,13 @@
 Bort Proxy
 ==========
 
-A caching proxy server for the [Bort](https://bort.io/) web application
-for bookmarks. Current proxied data includes website icons and search
-suggestions.
+A caching proxy server for [Bort.io](https://bort.io/). Current proxied
+data includes website icons and search suggestions.
 
-To try Bort Proxy locally, just install the dependencies and start the
+To try Bort Proxy locally, just install the dependencies, start the
 server
 
 ```bash
-pip3 install -r requirements.txt
 make run
 ```
 

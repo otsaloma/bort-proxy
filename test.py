@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
+import os
 import requests
-import sys
+import urllib.parse
+
+HOST = os.environ.get("HOST", "http://localhost:5000")
 
 def test(path):
-    url = sys.argv[1] + path
+    url = urllib.parse.urljoin(HOST, path)
     print(format(url), end=" ")
     response = requests.get(url, timeout=10)
     print(response.status_code)

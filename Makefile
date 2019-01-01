@@ -1,12 +1,10 @@
 # -*- coding: utf-8-unix -*-
 
-NAME = `basename $$PWD`
-
 export FLASK_APP = app.py
 export FLASK_DEBUG = 1
 
 check:
-	pyflakes app.py
+	flake8 app.py
 
 clean:
 	rm -rf __pycache__
@@ -14,4 +12,10 @@ clean:
 run:
 	flask run
 
-.PHONY: check clean run
+test:
+	./test.py
+
+test-production:
+	HOST=`heroku info -s | grep web_url | cut -d= -f2` ./test.py
+
+.PHONY: check clean run test test-production
