@@ -36,6 +36,7 @@ import re
 import redis
 import requests
 import traceback
+import unicodedata
 import urllib.parse
 import xml.etree.ElementTree as ET
 
@@ -162,8 +163,17 @@ def get_letter(url):
 @functools.lru_cache(256)
 def get_letter_icon(letter):
     """Return letter icon PNG bytes for `url`."""
-    with open("letter-icons/{}.png".format(letter), "rb") as f:
-        return f.read()
+    fname = "letter-icons/{}.png".format(letter)
+    if os.path.isfile(fname):
+        with open(fname, "rb") as f:
+            return f.read()
+    name = unicodedata.name(letter)
+    name = name.lower().replace(" ", "-")
+    fname = "letter-icons/{}.png".format(name)
+    if os.path.isfile(fname):
+        with open(fname, "rb") as f:
+            return f.read()
+    return FALLBACK_PNG
 
 def get_page(url, timeout=15):
     """Return evaluated `url`, HTML page as text."""
