@@ -238,8 +238,8 @@ def icon():
         try:
             print("Requesting {}".format(icon["url"]))
             image = request_image(icon["url"])
-            pi = PIL.Image.open(io.BytesIO(image))
-            if min(pi.width, pi.height) < size: continue
+            with PIL.Image.open(io.BytesIO(image)) as pi:
+                if min(pi.width, pi.height) < size: continue
             image = resize_image(image, size)
             if imghdr.what(None, image) != "png":
                 raise ValueError("Non-PNG data received")
@@ -355,18 +355,18 @@ def request_image(url, max_size=1, timeout=15):
 
 def resize_image(image, size, threshold=2):
     """Resize `image` to `size` and return PNG bytes."""
-    pi = PIL.Image.open(io.BytesIO(image))
-    if pi.mode not in ("RGB", "RGBA"):
-        pi = pi.convert("RGBA")
-    pi.thumbnail((size, size), PIL.Image.BICUBIC)
-    if pi.width != pi.height:
-        # Add transparent margins to make a square image.
-        bg = PIL.Image.new("RGBA", (size, size), (255, 255, 255, 0))
-        bg.paste(pi, ((size - pi.width) // 2, (size - pi.height) // 2))
-        pi = bg
-    out = io.BytesIO()
-    pi.save(out, "PNG")
-    return out.getvalue()
+    with PIL.Image.open(io.BytesIO(image)) as pi:
+        if pi.mode not in ("RGB", "RGBA"):
+            pi = pi.convert("RGBA")
+        pi.thumbnail((size, size), PIL.Image.BICUBIC)
+        if pi.width != pi.height:
+            # Add transparent margins to make a square image.
+            bg = PIL.Image.new("RGBA", (size, size), (255, 255, 255, 0))
+            bg.paste(pi, ((size - pi.width) // 2, (size - pi.height) // 2))
+            pi = bg
+        out = io.BytesIO()
+        pi.save(out, "PNG")
+        return out.getvalue()
 
 def rex(a, b):
     """Return a random amount of seconds between a and b days."""
