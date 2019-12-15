@@ -1,7 +1,7 @@
 # -*- coding: utf-8-unix -*-
 
 export FLASK_APP = app.py
-export FLASK_DEBUG = 1
+export FLASK_ENV = development
 
 check:
 	flake8 app.py

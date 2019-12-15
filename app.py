@@ -52,15 +52,13 @@ LINK_REL_PATTERNS = [
 app = flask.Flask(__name__)
 blacklist = set()
 
-if "REDISCLOUD_URL" in os.environ:
-    # Production config values are set in the dashboard.
-    # See 'heroku addons:open rediscloud'.
+if app.config["ENV"] == "production":
     cache = redis.from_url(os.environ["REDISCLOUD_URL"])
 else:
     cache = redis.from_url("redis://localhost")
     cache.config_set("maxmemory", "30mb")
     cache.config_set("maxmemory-policy", "allkeys-lru")
-    if app.debug: cache.flushdb()
+    cache.flushdb()
 
 # Cache HTTP connections for better performance.
 # https://urllib3.readthedocs.io/en/latest/advanced-usage.html#customizing-pool-behavior
