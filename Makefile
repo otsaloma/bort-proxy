@@ -9,6 +9,11 @@ check:
 clean:
 	rm -rf __pycache__
 
+release:
+	$(MAKE) check
+	git push heroku master
+	$(MAKE) test-production
+
 run:
 	flask run
 
@@ -23,4 +28,4 @@ venv:
 	virtualenv -p python3 venv
 	. venv/bin/activate && pip install -r requirements.txt
 
-.PHONY: check clean run test test-production venv
+.PHONY: check clean release run test test-production venv
