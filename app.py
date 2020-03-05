@@ -135,6 +135,8 @@ def find_icons(url):
         for tag in soup.find_all("link", dict(rel=pattern)):
             href = urllib.parse.urljoin(url, tag.attrs["href"])
             size = tag.attrs.get("sizes", "0x0")
+            # resize_image doesn't currently handle SVGs.
+            if size == "any": continue
             yield dict(url=href, size=int(size.split("x")[0]))
     # Fall back on looking for icons at the server root.
     join = lambda x: urllib.parse.urljoin(url, x)
