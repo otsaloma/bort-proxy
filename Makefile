@@ -9,7 +9,7 @@ check:
 clean:
 	rm -rf __pycache__
 
-release:
+deploy:
 	$(MAKE) check
 	git push heroku master
 	$(MAKE) test-production
@@ -28,4 +28,4 @@ venv:
 	virtualenv -p python3 venv
 	. venv/bin/activate && pip install -r requirements.txt
 
-.PHONY: check clean release run test test-production venv
+.PHONY: check clean deploy run test test-production venv
