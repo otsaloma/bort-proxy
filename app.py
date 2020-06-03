@@ -391,16 +391,23 @@ def twitter_icon():
         print("Found in cache: {}".format(key))
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
-    url = "https://twitter.com/{user}/profile_image?size=original"
+    url = "https://mobile.twitter.com/{user}?"
     url = url.format(user=urllib.parse.quote(user))
     try:
         print("Requesting {}".format(url))
-        image = request_image(url, max_size=5)
-        image = resize_image(image, size)
-        if imghdr.what(None, image) != "png":
-            raise ValueError("Non-PNG data received")
-        cache.set(key, image, ex=rex(3, 5))
-        return make_response(image, format)
+        url, page = get_page(url)
+        soup = bs4.BeautifulSoup(page, "html.parser")
+        for tag in soup.find_all("img", dict(src=re.compile(r"/profile_images/"))):
+            # Remove size variant to get the full "original" image.
+            # https://developer.twitter.com/en/docs/accounts-and-users/user-profile-images-and-banners
+            url = re.sub(r"_\w+(\.\w+)$", r"\1", tag.attrs["src"])
+            print("Found profile image URL {}".format(url))
+            image = request_image(url, max_size=5)
+            image = resize_image(image, size)
+            if imghdr.what(None, image) != "png":
+                raise ValueError("Non-PNG data received")
+            cache.set(key, image, ex=rex(3, 5))
+            return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))
