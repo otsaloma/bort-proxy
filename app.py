@@ -400,7 +400,7 @@ def twitter_icon():
         for tag in soup.find_all("img", dict(src=re.compile(r"/profile_images/"))):
             # Remove size variant to get the full "original" image.
             # https://developer.twitter.com/en/docs/accounts-and-users/user-profile-images-and-banners
-            url = re.sub(r"_\w+(\.\w+)$", r"\1", tag.attrs["src"])
+            url = re.sub(r"_[^/_.]+(\.\w+)$", r"\1", tag.attrs["src"])
             print("Found profile image URL {}".format(url))
             image = request_image(url, max_size=5)
             image = resize_image(image, size)
