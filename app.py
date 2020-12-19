@@ -70,7 +70,6 @@ adapter = requests.adapters.HTTPAdapter(pool_connections=10,
 rs = requests.Session()
 rs.mount("http://", adapter)
 rs.mount("https://", adapter)
-rs.headers = {"User-Agent": "Mozilla/5.0"}
 
 
 @app.route("/facebook-icon")
@@ -392,19 +391,16 @@ def twitter_icon():
         print("Found in cache: {}".format(key))
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
-    # XXX: twitter.com requires JavaScript execution.
-    url = "https://nitter.net/{user}"
+    url = "https://mobile.twitter.com/{user}?"
     url = url.format(user=urllib.parse.quote(user))
     try:
         print("Requesting {}".format(url))
         url, page = get_page(url)
         soup = bs4.BeautifulSoup(page, "html.parser")
-        for tag in soup.find_all("img", dict(src=re.compile(r"/profile_images"))):
+        for tag in soup.find_all("img", dict(src=re.compile(r"/profile_images/"))):
             # Remove size variant to get the full "original" image.
             # https://developer.twitter.com/en/docs/accounts-and-users/user-profile-images-and-banners
             url = re.sub(r"_[^/_.]+(\.\w+)$", r"\1", tag.attrs["src"])
-            if url.startswith("/"):
-                url = "https://nitter.net{}".format(url)
             print("Found profile image URL {}".format(url))
             image = request_image(url, max_size=5)
             image = resize_image(image, size)

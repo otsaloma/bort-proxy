@@ -7,7 +7,6 @@ import urllib.parse
 HOST = os.environ.get("HOST", "http://localhost:5000")
 
 def test(path):
-    # TODO: Check that icons are not fallback letter icons.
     url = urllib.parse.urljoin(HOST, path)
     print(format(url), end=" ")
     response = requests.get(url, timeout=10)
