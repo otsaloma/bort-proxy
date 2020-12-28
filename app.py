@@ -23,6 +23,7 @@
 import base64
 import bs4
 import contextlib
+import dotenv
 import flask
 import functools
 import imghdr
@@ -36,9 +37,12 @@ import re
 import redis
 import requests
 import traceback
+import tweepy
 import unicodedata
 import urllib.parse
 import xml.etree.ElementTree as ET
+
+dotenv.load_dotenv()
 
 FALLBACK_PNG = open("letter-icons/x.png", "rb").read()
 
@@ -185,6 +189,14 @@ def get_page(url, timeout=15):
         with silent(Exception):
             return get_page("{}://{}".format(scheme, url))
     raise Exception("Failed to get page")
+
+@functools.lru_cache(1)
+def get_twitter_api():
+    """Return Twitter API object."""
+    key = os.environ["TWITTER_API_KEY"]
+    secret = os.environ["TWITTER_API_SECRET"]
+    auth = tweepy.AppAuthHandler(key, secret)
+    return tweepy.API(auth)
 
 @app.route("/google-search-suggestions")
 def google_search_suggestions():
@@ -391,23 +403,20 @@ def twitter_icon():
         print("Found in cache: {}".format(key))
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
-    url = "https://mobile.twitter.com/{user}?"
-    url = url.format(user=urllib.parse.quote(user))
     try:
-        print("Requesting {}".format(url))
-        url, page = get_page(url)
-        soup = bs4.BeautifulSoup(page, "html.parser")
-        for tag in soup.find_all("img", dict(src=re.compile(r"/profile_images/"))):
-            # Remove size variant to get the full "original" image.
-            # https://developer.twitter.com/en/docs/accounts-and-users/user-profile-images-and-banners
-            url = re.sub(r"_[^/_.]+(\.\w+)$", r"\1", tag.attrs["src"])
-            print("Found profile image URL {}".format(url))
-            image = request_image(url, max_size=5)
-            image = resize_image(image, size)
-            if imghdr.what(None, image) != "png":
-                raise ValueError("Non-PNG data received")
-            cache.set(key, image, ex=rex(3, 5))
-            return make_response(image, format)
+        api = get_twitter_api()
+        user_object = api.get_user(user)
+        url = user_object.profile_image_url_https
+        # Remove size variant to get the full "original" image.
+        # https://developer.twitter.com/en/docs/accounts-and-users/user-profile-images-and-banners
+        url = re.sub(r"_([^/_.]+)(\.\w+)$", r"\2", url)
+        print("Found profile image URL {}".format(url))
+        image = request_image(url, max_size=5)
+        image = resize_image(image, size)
+        if imghdr.what(None, image) != "png":
+            raise ValueError("Non-PNG data received")
+        cache.set(key, image, ex=rex(3, 5))
+        return make_response(image, format)
     except Exception as error:
         print("Error requesting {}: {}".format(
             flask.request.full_path, str(error)))

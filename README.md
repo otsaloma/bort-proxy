@@ -4,11 +4,25 @@ Bort Proxy
 A caching proxy server for [Bort.io](https://bort.io/). Current proxied
 data includes website icons and search suggestions.
 
-To try Bort Proxy locally, just install the dependencies in a virtualenv
-and start the server.
+To try Bort Proxy locally, create a `.env` file with the following
+content.
+
+```
+FLASK_APP=app.py
+FLASK_ENV=development
+TWITTER_API_KEY=
+TWITTER_API_SECRET=
+```
+
+Install the dependencies in a virtual environment.
+
+```
+make venv
+```
+
+Start the server.
 
 ```bash
-make venv
 make run
 ```
 

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-import os
-
-os.environ["FLASK_ENV"] = "development"
-
 import app
 import sys
 
