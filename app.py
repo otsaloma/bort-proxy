@@ -72,6 +72,7 @@ adapter = requests.adapters.HTTPAdapter(pool_connections=10,
                                         pool_block=False)
 
 rs = requests.Session()
+rs.headers = {"User-Agent": "Mozilla/5.0"}
 rs.mount("http://", adapter)
 rs.mount("https://", adapter)
 
