@@ -22,6 +22,7 @@
 
 import base64
 import bs4
+import cairosvg
 import contextlib
 import dotenv
 import flask
@@ -140,8 +141,8 @@ def find_icons(url):
         for tag in soup.find_all("link", dict(rel=pattern)):
             href = urllib.parse.urljoin(url, tag.attrs["href"])
             size = tag.attrs.get("sizes", "0x0")
-            # resize_image doesn't currently handle SVGs.
-            if size == "any": continue
+            if size == "any":
+                size = "1000x1000"
             yield dict(url=href, size=int(size.split("x")[0]))
     # Fall back on looking for icons at the server root.
     join = lambda x: urllib.parse.urljoin(url, x)
@@ -251,8 +252,9 @@ def icon():
         try:
             print("Requesting {}".format(icon["url"]))
             image = request_image(icon["url"])
-            with PIL.Image.open(io.BytesIO(image)) as pi:
-                if min(pi.width, pi.height) < size: continue
+            if not is_svg(image):
+                with PIL.Image.open(io.BytesIO(image)) as pi:
+                    if min(pi.width, pi.height) < size: continue
             image = resize_image(image, size)
             if imghdr.what(None, image) != "png":
                 raise ValueError("Non-PNG data received")
@@ -316,6 +318,10 @@ def image():
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
 
+def is_svg(image):
+    return (isinstance(image, str) and
+            image.lstrip().startswith("<svg"))
+
 def make_response(data, format, max_age=None):
     """Return response 200 for `data` as `format`."""
     if format == "base64":
@@ -361,13 +367,28 @@ def request_image(url, max_size=1, timeout=15):
             response.headers["content-length"].isdigit() and
             int(response.headers["content-length"]) > max_size):
             raise ValueError("Too large")
+        content_type = response.headers.get("content-type", "").lower()
+        if url.endswith(".svg") or content_type == "image/svg+xml":
+            # SVG, return as string.
+            image = response.text
+            if len(image) > max_size:
+                blacklist.add(url)
+                raise ValueError("Too large")
+            return image
+        # Raster, return as bytes.
         image = response.raw.read(max_size+1, decode_content=True)
-        if len(image) <= max_size: return image
-        blacklist.add(url)
-        raise ValueError("Too large")
+        if len(image) > max_size:
+            blacklist.add(url)
+            raise ValueError("Too large")
+        return image
 
-def resize_image(image, size, threshold=2):
+def resize_image(image, size):
     """Resize `image` to `size` and return PNG bytes."""
+    if is_svg(image):
+        image = cairosvg.svg2png(bytestring=image.encode("utf-8"),
+                                 output_width=size,
+                                 output_height=size)
+
     with PIL.Image.open(io.BytesIO(image)) as pi:
         if pi.mode not in ("RGB", "RGBA"):
             pi = pi.convert("RGBA")
