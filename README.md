@@ -16,10 +16,6 @@ TWITTER_API_SECRET=
 
 Install the dependencies in a virtual environment.
 
-```
-make venv
-```
-
 Start the server.
 
 ```bash

@@ -23,9 +23,4 @@ test:
 test-production:
 	HOST=`heroku info -s | grep web_url | cut -d= -f2` ./test.py
 
-venv:
-	rm -rf venv
-	virtualenv -p python3 venv
-	. venv/bin/activate && pip install -r requirements.txt
-
-.PHONY: check clean deploy run test test-production venv
+.PHONY: check clean deploy run test test-production
