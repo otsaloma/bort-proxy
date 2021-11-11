@@ -35,7 +35,6 @@ import pickle
 import PIL.Image
 import random
 import re
-import redis
 import requests
 import traceback
 import tweepy
@@ -58,12 +57,11 @@ app = flask.Flask(__name__)
 blacklist = set()
 
 if app.config["ENV"] == "production":
+    import redis
     cache = redis.from_url(os.environ["REDISCLOUD_URL"])
 else:
-    cache = redis.from_url("redis://localhost")
-    cache.config_set("maxmemory", "30mb")
-    cache.config_set("maxmemory-policy", "allkeys-lru")
-    cache.flushdb()
+    import redislite
+    cache = redislite.Redis()
 
 # Cache HTTP connections for better performance.
 # https://urllib3.readthedocs.io/en/latest/advanced-usage.html#customizing-pool-behavior
