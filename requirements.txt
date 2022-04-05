@@ -7,6 +7,5 @@ gunicorn==20.1.0
 pillow==9.1.0
 python-dotenv==0.20.0
 redis==4.2.1
-redislite==6.0.674960
 requests==2.27.1
 tweepy==4.8.0

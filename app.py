@@ -60,8 +60,18 @@ if app.config["ENV"] == "production":
     import redis
     cache = redis.from_url(os.environ["REDISCLOUD_URL"])
 else:
-    import redislite
-    cache = redislite.Redis()
+    class RedisDict:
+        def __init__(self):
+            self.db = {}
+        def exists(self, key):
+            return key in self.db
+        def get(self, key):
+            return self.db[key]
+        def set(self, key, value, **kwargs):
+            self.db[key] = value
+        def ttl(self, key):
+            return 60
+    cache = RedisDict()
 
 # Cache HTTP connections for better performance.
 # https://urllib3.readthedocs.io/en/latest/advanced-usage.html#customizing-pool-behavior
@@ -425,7 +435,7 @@ def twitter_icon():
         return make_response(image, format, ttl)
     try:
         api = get_twitter_api()
-        user_object = api.get_user(user)
+        user_object = api.get_user(screen_name=user)
         url = user_object.profile_image_url_https
         # Remove size variant to get the full "original" image.
         # https://developer.twitter.com/en/docs/accounts-and-users/user-profile-images-and-banners
