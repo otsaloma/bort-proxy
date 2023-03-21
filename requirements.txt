@@ -1,5 +1,5 @@
 beautifulsoup4==4.10.0
-cairosvg==2.5.2
+cairosvg==2.7.0
 flake8==4.0.1
 flask==2.1.1
 gevent==21.12.0
