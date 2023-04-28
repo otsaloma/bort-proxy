@@ -10,8 +10,6 @@ content.
 ```
 FLASK_APP=app.py
 FLASK_ENV=development
-TWITTER_API_KEY=
-TWITTER_API_SECRET=
 ```
 
 Install the dependencies in a virtual environment.
