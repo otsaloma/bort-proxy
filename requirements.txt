@@ -1,7 +1,7 @@
 beautifulsoup4==4.10.0
 cairosvg==2.7.0
 flake8==4.0.1
-flask==2.1.1
+flask==2.3.2
 gevent==21.12.0
 gunicorn==20.1.0
 pillow==9.3.0
