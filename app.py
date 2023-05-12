@@ -52,6 +52,8 @@ LINK_REL_PATTERNS = [
     re.compile("^shortcut icon$"),
 ]
 
+SVG_MIMETYPE = "image/svg+xml"
+
 app = flask.Flask(__name__)
 blacklist = set()
 
@@ -83,7 +85,6 @@ rs = requests.Session()
 rs.headers = {"User-Agent": "Mozilla/5.0"}
 rs.mount("http://", adapter)
 rs.mount("https://", adapter)
-
 
 @app.route("/facebook-icon")
 def facebook_icon():
@@ -147,10 +148,14 @@ def find_icons(url):
     for pattern in LINK_REL_PATTERNS:
         for tag in soup.find_all("link", dict(rel=pattern)):
             href = urllib.parse.urljoin(url, tag.attrs["href"])
+            type = tag.attrs.get("type", "")
+            if not type:
+                if is_svg(url=href):
+                    type = SVG_MIMETYPE
             size = tag.attrs.get("sizes", "0x0")
             if size == "any":
                 size = "1000x1000"
-            yield dict(url=href, size=int(size.split("x")[0]))
+            yield dict(url=href, type=type, size=int(size.split("x")[0]))
     # Fall back on looking for icons at the server root.
     join = lambda x: urllib.parse.urljoin(url, x)
     yield dict(url=join("/apple-touch-icon.png"), fallback=True)
@@ -251,10 +256,11 @@ def icon():
         try:
             print("Requesting {}".format(icon["url"]))
             image = request_image(icon["url"])
-            if not is_svg(image):
+            type = icon.get("type", "")
+            if not is_svg(type=type, image=image):
                 with PIL.Image.open(io.BytesIO(image)) as pi:
                     if min(pi.width, pi.height) < size: continue
-            image = resize_image(image, size)
+            image = resize_image(image, size, type)
             if imghdr.what(None, image) != "png":
                 raise ValueError("Non-PNG data received")
             cache.set(key, image, ex=rex(3, 5))
@@ -305,7 +311,8 @@ def image():
     try:
         print("Requesting {}".format(url))
         image = request_image(url, max_size=1)
-        image = resize_image(image, size)
+        type = SVG_MIMETYPE if is_svg(url=url, image=image) else ""
+        image = resize_image(image, size, type)
         if imghdr.what(None, image) != "png":
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=rex(3, 5))
@@ -317,9 +324,12 @@ def image():
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
 
-def is_svg(image):
-    return (isinstance(image, str) and
-            image.lstrip().startswith("<svg"))
+def is_svg(url="", type="", image=None):
+    return (url.split("?")[0].endswith(".svg") or
+            type == SVG_MIMETYPE or
+            (isinstance(image, str) and
+             (image.lstrip().startswith("<svg") or
+              image.rstrip().endswith("</svg>"))))
 
 def make_response(data, format, max_age=None):
     """Return response 200 for `data` as `format`."""
@@ -367,7 +377,7 @@ def request_image(url, max_size=1, timeout=15):
             int(response.headers["content-length"]) > max_size):
             raise ValueError("Too large")
         content_type = response.headers.get("content-type", "").lower()
-        if url.endswith(".svg") or content_type == "image/svg+xml":
+        if is_svg(url=url, type=content_type):
             # SVG, return as string.
             image = response.text
             if len(image) > max_size:
@@ -381,9 +391,9 @@ def request_image(url, max_size=1, timeout=15):
             raise ValueError("Too large")
         return image
 
-def resize_image(image, size):
+def resize_image(image, size, type=""):
     """Resize `image` to `size` and return PNG bytes."""
-    if is_svg(image):
+    if is_svg(type=type, image=image):
         image = cairosvg.svg2png(bytestring=image.encode("utf-8"),
                                  output_width=size,
                                  output_height=size)
