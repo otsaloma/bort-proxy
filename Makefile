@@ -15,7 +15,7 @@ deploy:
 	$(MAKE) test-production
 
 run:
-	flask run --debug
+	flask --app=app.py run --debug
 
 test:
 	./test.py
