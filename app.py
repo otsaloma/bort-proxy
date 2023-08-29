@@ -36,6 +36,7 @@ import PIL.Image
 import random
 import re
 import requests
+import sys
 import traceback
 import unicodedata
 import urllib.parse
@@ -57,7 +58,9 @@ SVG_MIMETYPE = "image/svg+xml"
 app = flask.Flask(__name__)
 blacklist = set()
 
-if app.config["ENV"] == "production":
+DEBUG = ("--debug" in sys.argv) or app.debug
+
+if not DEBUG:
     import redis
     cache = redis.from_url(os.environ["REDISCLOUD_URL"])
 else:

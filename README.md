@@ -9,7 +9,6 @@ content.
 
 ```
 FLASK_APP=app.py
-FLASK_ENV=development
 ```
 
 Install the dependencies in a virtual environment.
