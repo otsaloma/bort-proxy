@@ -146,13 +146,12 @@ def favicon():
 
 def find_icons(url):
     """Yield icon entries specified in the HTML HEAD of `url`."""
-    found = set()
+    found = {}
     url, page = get_page(url)
     soup = bs4.BeautifulSoup(page, "html.parser")
     for pattern in LINK_REL_PATTERNS:
         for tag in soup.find_all("link", dict(rel=pattern)):
             href = urllib.parse.urljoin(url, tag.attrs["href"])
-            if href in found: continue
             type = tag.attrs.get("type", "")
             if not type:
                 if is_svg(url=href):
@@ -160,13 +159,17 @@ def find_icons(url):
             size = tag.attrs.get("sizes", "0x0")
             if size == "any":
                 size = "1000x1000"
-            yield dict(url=href, type=type, size=int(size.split("x")[0]))
-            found.add(href)
+            size = int(size.split("x")[0])
+            if href in found:
+                if size <= found[href]:
+                    continue
+            yield dict(url=href, type=type, size=size)
+            found[href] = size
     # Fall back on looking for icons at the server root.
     for path in ["/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"]:
         href = urllib.parse.urljoin(url, path)
         if href in found: continue
-        found.add(href)
+        found[href] = 0
         yield dict(url=href, fallback=True)
 
 def get_cache_control(max_age):
