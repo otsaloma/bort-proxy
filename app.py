@@ -25,9 +25,9 @@ import bs4
 import cairosvg
 import contextlib
 import dotenv
+import filetype
 import flask
 import functools
-import imghdr
 import io
 import json
 import os
@@ -106,7 +106,7 @@ def facebook_icon():
         print("Requesting {}".format(url))
         image = request_image(url, max_size=5)
         image = resize_image(image, size)
-        if imghdr.what(None, image) != "png":
+        if not is_png(image):
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
@@ -133,7 +133,7 @@ def favicon():
     try:
         print("Requesting {}".format(url))
         image = request_image(url, max_size=1)
-        if imghdr.what(None, image) != "png":
+        if not is_png(image):
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
@@ -272,7 +272,7 @@ def icon():
                 with PIL.Image.open(io.BytesIO(image)) as pi:
                     if min(pi.width, pi.height) < size: continue
             image = resize_image(image, size, type)
-            if imghdr.what(None, image) != "png":
+            if not is_png(image):
                 raise ValueError("Non-PNG data received")
             cache.set(key, image, ex=rex(3, 5))
             return make_response(image, format)
@@ -324,7 +324,7 @@ def image():
         image = request_image(url, max_size=1)
         type = SVG_MIMETYPE if is_svg(url=url, image=image) else ""
         image = resize_image(image, size, type)
-        if imghdr.what(None, image) != "png":
+        if not is_png(image):
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
@@ -334,6 +334,10 @@ def image():
         image = resize_image(FALLBACK_PNG, size)
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
+
+def is_png(blob):
+    kind = filetype.guess(blob)
+    return kind.mime == "image/png"
 
 def is_svg(url="", type="", image=None):
     return (url.split("?")[0].endswith(".svg") or

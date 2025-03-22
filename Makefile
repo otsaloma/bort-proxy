@@ -3,6 +3,8 @@
 include .env
 export
 
+PYTHON = python3.13
+
 check:
 	flake8 app.py
 
@@ -23,4 +25,11 @@ test:
 test-production:
 	HOST=`heroku info -s | grep web_url | cut -d= -f2` ./test.py
 
-.PHONY: check clean deploy run test test-production
+venv:
+	rm -rf venv
+	$(PYTHON) -m venv venv
+	. venv/bin/activate && \
+	  pip install -U pip setuptools wheel && \
+	  pip install -r requirements.txt
+
+.PHONY: check clean deploy run test test-production venv
