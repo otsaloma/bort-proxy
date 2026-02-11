@@ -5,7 +5,7 @@ flake8==7.1.2
 flask==3.1.1
 gevent==24.11.1
 gunicorn==23.0.0
-pillow==11.1.0
+pillow==12.1.1
 python-dotenv==1.0.1
 redis==5.2.1
 requests==2.32.3
