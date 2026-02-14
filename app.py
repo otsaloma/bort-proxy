@@ -208,6 +208,7 @@ def get_page(url, timeout=15):
     """Return evaluated `url`, HTML page as text."""
     if "://" in url:
         response = rs.get(url, timeout=timeout)
+        print(f"GET {url} {response.status_code} {response.text[:300]}...")
         response.raise_for_status()
         return response.url, response.text
     for scheme in ("https", "http"):
