@@ -212,8 +212,10 @@ def get_page(url, timeout=15):
         response.raise_for_status()
         return response.url, response.text
     for scheme in ("https", "http"):
-        with silent(Exception):
-            return get_page("{}://{}".format(scheme, url))
+        try:
+            return get_page(f"{scheme}://{url}")
+        except Exception:
+            traceback.print_exc()
     raise Exception("Failed to get page")
 
 @app.route("/google-search-suggestions")
