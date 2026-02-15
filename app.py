@@ -24,7 +24,6 @@ import base64
 import bs4
 import cairosvg
 import contextlib
-import dotenv
 import filetype
 import flask
 import functools
@@ -42,9 +41,10 @@ import unicodedata
 import urllib.parse
 import xml.etree.ElementTree as ET
 
-dotenv.load_dotenv()
+from pathlib import Path
 
 FALLBACK_PNG = open("letter-icons/x.png", "rb").read()
+LETTER_ICON_DIR = Path(__file__).with_name("letter-icons")
 
 LINK_REL_PATTERNS = [
     re.compile("^apple-touch-icon$"),
@@ -56,13 +56,13 @@ LINK_REL_PATTERNS = [
 SVG_MIMETYPE = "image/svg+xml"
 
 app = flask.Flask(__name__)
-blacklist = set()
-
+log = app.logger
 DEBUG = ("--debug" in sys.argv) or app.debug
+blacklist = set()
 
 if not DEBUG:
     import redis
-    cache = redis.from_url(os.environ["REDISCLOUD_URL"])
+    cache = redis.from_url(os.environ["REDIS_URL"])
 else:
     class RedisDict:
         def __init__(self):
@@ -95,15 +95,15 @@ def facebook_icon():
     user = flask.request.args["user"]
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
-    key = "facebook-icon:{}:{:d}".format(user, size)
+    key = f"facebook-icon:{user}:{size}"
     if cache.exists(key):
-        print("Found in cache: {}".format(key))
+        log.info(f"Found in cache: {key}")
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
     url = "https://graph.facebook.com/{user}/picture?type=large"
     url = url.format(user=urllib.parse.quote(user))
     try:
-        print("Requesting {}".format(url))
+        log.info(f"Requesting {url}")
         image = request_image(url, max_size=5)
         image = resize_image(image, size)
         if not is_png(image):
@@ -111,8 +111,7 @@ def facebook_icon():
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
-        print("Error requesting {}: {}".format(
-            flask.request.full_path, str(error)))
+        log.error(f"Error requesting {flask.request.full_path}: {error!s}")
         image = resize_image(FALLBACK_PNG, size)
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
@@ -121,25 +120,25 @@ def facebook_icon():
 def favicon():
     """Return a 16x16 favicon for website."""
     domain = flask.request.args["url"]
-    domain = re.sub("/.*$", "", re.sub("^.*?://", "", domain))
+    domain = re.sub("^.*?://", "", domain)
+    domain = re.sub("/.*$", "", domain)
     format = flask.request.args.get("format", "png")
-    key = "favicon:{}".format(domain)
+    key = f"favicon:{domain}"
     if cache.exists(key):
-        print("Found in cache: {}".format(key))
+        log.info(f"Found in cache: {key}")
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
     url = "https://www.google.com/s2/favicons?domain={domain}"
     url = url.format(domain=urllib.parse.quote(domain))
     try:
-        print("Requesting {}".format(url))
+        log.info(f"Requesting {url}")
         image = request_image(url, max_size=1)
         if not is_png(image):
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
-        print("Error requesting {}: {}".format(
-            flask.request.full_path, str(error)))
+        log.error(f"Error requesting {flask.request.full_path}: {error!s}")
         image = resize_image(FALLBACK_PNG, 16)
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
@@ -174,7 +173,7 @@ def find_icons(url):
 
 def get_cache_control(max_age):
     """Return a Cache-Control header for `max_age`."""
-    return "public, max-age={:d}".format(max_age)
+    return f"public, max-age={max_age:d}"
 
 def get_from_cache(key):
     """Return value, ttl for `key` from cache."""
@@ -183,7 +182,7 @@ def get_from_cache(key):
 def get_letter(url):
     """Return letter to represent `url`."""
     if "://" not in url:
-        url = "http://{}".format(url)
+        url = f"http://{url}"
     url = urllib.parse.urlparse(url).netloc
     url = url.split(".")
     url = url[-2] if len(url) > 1 else url[0]
@@ -192,23 +191,22 @@ def get_letter(url):
 @functools.lru_cache(256)
 def get_letter_icon(letter):
     """Return letter icon PNG bytes for `url`."""
-    fname = "letter-icons/{}.png".format(letter)
-    if os.path.isfile(fname):
-        with open(fname, "rb") as f:
-            return f.read()
+    path = LETTER_ICON_DIR / f"{letter}.png"
+    if path.exists():
+        return path.read_bytes()
     name = unicodedata.name(letter)
     name = name.lower().replace(" ", "-")
-    fname = "letter-icons/{}.png".format(name)
-    if os.path.isfile(fname):
-        with open(fname, "rb") as f:
-            return f.read()
+    path = LETTER_ICON_DIR / f"{name}.png"
+    if path.exists():
+        return path.read_bytes()
     return FALLBACK_PNG
 
 def get_page(url, timeout=15):
     """Return evaluated `url`, HTML page as text."""
     if "://" in url:
         response = rs.get(url, timeout=timeout)
-        print(f"GET {url} {response.status_code} {response.text[:300]}...")
+        blurb = response.text[:300].strip().replace("\n", " ")
+        log.info(f"GET {url} {response.status_code} {blurb}...")
         response.raise_for_status()
         return response.url, response.text
     for scheme in ("https", "http"):
@@ -223,24 +221,24 @@ def google_search_suggestions():
     """Return a JSON array of Google search suggestions for query."""
     query = flask.request.args["query"]
     lang = flask.request.args.get("lang", "en")
-    key = "google-search-suggestions:{}:{}".format(query, lang)
+    key = f"google-search-suggestions:{query}:{lang}"
     if cache.exists(key):
-        print("Found in cache: {}".format(key))
+        log.info(f"Found in cache: {key}")
         data, ttl = get_from_cache(key)
         return make_response(pickle.loads(data), "json", ttl)
     url = "https://suggestqueries.google.com/complete/search?output=toolbar&q={query}&hl={lang}"
     url = url.format(query=urllib.parse.quote_plus(query), lang=lang)
     try:
-        print("Requesting {}".format(url))
+        log.info(f"Requesting {url}")
         response = rs.get(url, timeout=5)
+        log.info(f"GET {url} {response.status_code}...")
         response.raise_for_status()
         root = ET.fromstring(response.text)
         suggestions = [x.get("data") for x in root.iter("suggestion")]
         cache.set(key, pickle.dumps(suggestions), ex=3600)
         return make_response(suggestions, "json")
     except Exception as error:
-        print("Error requesting {}: {}".format(
-            flask.request.full_path, str(error)))
+        log.error(f"Error requesting {flask.request.full_path}: {error!s}")
         cache.set(key, pickle.dumps([]), ex=3600)
         return make_response([], "json", 3600)
 
@@ -250,25 +248,24 @@ def icon():
     url = flask.request.args["url"]
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
-    key = "icon:{}:{:d}".format(url, size)
+    key = f"icon:{url}:{size}"
     if cache.exists(key):
-        print("Found in cache: {}".format(key))
+        log.info(f"Found in cache: {key}")
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
     try:
-        print("Parsing {}".format(url))
+        log.info(f"Parsing {url}")
         icons = list(find_icons(url))
         icons.sort(key=lambda x: x.get("size", 0) or 1000)
     except Exception as error:
-        print("Error parsing {}: {}".format(
-            flask.request.full_path, str(error)))
+        log.error(f"Error parsing {flask.request.full_path}: {error!s}")
         icons = []
     for icon in icons:
         # Ignore icons with a known size less than requested.
         icon.setdefault("size", 0)
         if 0 < icon["size"] < size: continue
         try:
-            print("Requesting {}".format(icon["url"]))
+            log.info(f"Requesting {icon['url']}")
             image = request_image(icon["url"])
             type = icon.get("type", "")
             if not is_svg(type=type, image=image):
@@ -280,8 +277,7 @@ def icon():
             cache.set(key, image, ex=rex(3, 5))
             return make_response(image, format)
         except Exception as error:
-            print("Error requesting {}: {}".format(
-                icon["url"], str(error)))
+            log.error(f"Error requesting {icon['url']}: {error!s}")
     # Fall back on letter icons for domain.
     image = get_letter_icon(get_letter(url))
     image = resize_image(image, size)
@@ -292,17 +288,16 @@ def icon():
 def icons():
     """Return JSON listing of icons for website."""
     url = flask.request.args["url"]
-    key = "icons:{}".format(url)
+    key = f"icons:{url}"
     if cache.exists(key):
-        print("Found in cache: {}".format(key))
+        log.info(f"Found in cache: {key}")
         data, ttl = get_from_cache(key)
         return make_response(pickle.loads(data), "json", ttl)
     try:
-        print("Parsing {}".format(url))
+        log.info(f"Parsing {url}")
         icons = list(find_icons(url))
     except Exception as error:
-        print("Error parsing {}: {}".format(
-            flask.request.full_path, str(error)))
+        log.error(f"Error parsing {flask.request.full_path}: {error!s}")
         icons = []
     for i in list(range(len(icons) - 1, -1, -1)):
         if icons[i].get("size", 1) < 1: del icons[i]["size"]
@@ -317,13 +312,13 @@ def image():
     url = flask.request.args["url"]
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
-    key = "image:{}:{:d}".format(url, size)
+    key = f"image:{url}:{size}"
     if cache.exists(key):
-        print("Found in cache: {}".format(key))
+        log.info(f"Found in cache: {key}")
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
     try:
-        print("Requesting {}".format(url))
+        log.info(f"Requesting {url}")
         image = request_image(url, max_size=1)
         type = SVG_MIMETYPE if is_svg(url=url, image=image) else ""
         image = resize_image(image, size, type)
@@ -332,8 +327,7 @@ def image():
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
-        print("Error requesting {}: {}".format(
-            flask.request.full_path, str(error)))
+        log.error(f"Error requesting {flask.request.full_path}: {error!s}")
         image = resize_image(FALLBACK_PNG, size)
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
@@ -389,6 +383,7 @@ def request_image(url, max_size=1, timeout=15):
     max_size = max_size * 1024 * 1024
     with contextlib.closing(rs.get(
             url, timeout=timeout, stream=True)) as response:
+        log.info(f"GET {url} {response.status_code}...")
         response.raise_for_status()
         if ("content-length" in response.headers and
             response.headers["content-length"].isdigit() and
@@ -433,14 +428,6 @@ def rex(a, b):
     """Return a random amount of seconds between a and b days."""
     return random.randint(int(a*86400), int(b*86400))
 
-@contextlib.contextmanager
-def silent(*exceptions, tb=False):
-    """Try to execute body, ignoring `exceptions`."""
-    try:
-        yield
-    except exceptions:
-        if tb: traceback.print_exc()
-
 @app.route("/twitter-icon")
 def twitter_icon():
     """Return a downscaled Twitter profile image."""
@@ -449,9 +436,9 @@ def twitter_icon():
     user = flask.request.args["user"]
     size = int(flask.request.args["size"])
     format = flask.request.args.get("format", "png")
-    key = "twitter-icon:{}:{:d}".format(user, size)
+    key = f"twitter-icon:{user}:{size}"
     if cache.exists(key):
-        print("Found in cache: {}".format(key))
+        log.info(f"Found in cache: {key}")
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
     letter = user[0].lower() if user else "x"

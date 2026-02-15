@@ -4,15 +4,24 @@ Bort Proxy
 A caching proxy server for [Bort.io](https://bort.io/). Current proxied
 data includes website icons and search suggestions.
 
-To try Bort Proxy locally, install the dependencies in a virtual
-environment. Start the server.
+## Development
 
 ```bash
+make venv
 make run
 ```
 
-Then browse to e.g. <http://localhost:5000/icon?url=github.com&size=96>.
-Check `app.py` for all API paths and parameters.
+Then try e.g. <http://localhost:5000/icon?url=github.com&size=96>.
 
-Bort Proxy is free software released under the MIT license, see the file
-[`COPYING`](COPYING) for details.
+Check `app.py` for all API endpoints and parameters.
+
+## Production
+
+Run with gunicorn.
+
+```bash
+gunicorn app:app --workers 2 --threads 16
+```
+
+Define `REDIS_URL` in the environment pointing to a small Redis instance
+running with `allkeys-lru` eviction policy.
