@@ -274,7 +274,10 @@ def icon():
             type = icon.get("type", "")
             if not is_svg(type=type, image=image):
                 with PIL.Image.open(io.BytesIO(image)) as pi:
-                    if min(pi.width, pi.height) < size: continue
+                    log.info(f"Icon seems to be {pi.width}x{pi.height}")
+                    if min(pi.width, pi.height) < size:
+                        log.info(f"Skipping as less than requested {size}")
+                        continue
             image = resize_image(image, size, type)
             if not is_png(image):
                 raise ValueError("Non-PNG data received")
