@@ -242,6 +242,10 @@ def google_search_suggestions():
         cache.set(key, pickle.dumps([]), ex=3600)
         return make_response([], "json", 3600)
 
+@app.route("/health")
+def health():
+    return {"message": "OK"}
+
 @app.route("/icon")
 def icon():
     """Return apple-touch-icon or favicon for website."""
