@@ -145,6 +145,7 @@ def favicon():
 
 def find_icons(url):
     """Yield icon entries specified in the HTML HEAD of `url`."""
+    if not is_url_valid(url): return
     found = {}
     url, page = get_page(url)
     soup = bs4.BeautifulSoup(page, "html.parser")
@@ -203,6 +204,8 @@ def get_letter_icon(letter):
 
 def get_page(url, timeout=15):
     """Return evaluated `url`, HTML page as text."""
+    if not is_url_valid(url):
+        raise Exception("Not a valid URL")
     if "://" in url:
         response = rs.get(url, timeout=timeout)
         blurb = response.text[:300].strip().replace("\n", " ")
@@ -350,6 +353,10 @@ def is_svg(url="", type="", image=None):
              (image.lstrip().startswith("<svg") or
               image.rstrip().endswith("</svg>"))))
 
+def is_url_valid(url):
+    # url is really usually just [host+]domain.
+    return ("." in url and len(url) >= 4) or ("localhost" in url)
+
 def make_response(data, format, max_age=None):
     """Return response 200 for `data` as `format`."""
     if format == "base64":
@@ -383,6 +390,8 @@ def make_response(data, format, max_age=None):
 
 def request_image(url, max_size=1, timeout=15):
     """Request and return image at `url` at most `max_size` MB."""
+    if not is_url_valid(url):
+        raise Exception("Not a valid URL")
     # Avoid getting caught reading insanely large files.
     # http://docs.python-requests.org/en/master/user/advanced/#body-content-workflow
     if url in blacklist:
