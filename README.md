@@ -20,7 +20,7 @@ Check `app.py` for all API endpoints and parameters.
 Run with gunicorn.
 
 ```bash
-gunicorn app:app --workers 2 --threads 16
+gunicorn app:app --workers 2 --threads 16 --max-requests 100
 ```
 
 Define `REDIS_URL` in the environment pointing to a small Redis instance
