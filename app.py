@@ -42,6 +42,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 
 from pathlib import Path
+from urllib3.util.retry import Retry
 
 FALLBACK_PNG = open("letter-icons/x.png", "rb").read()
 LETTER_ICON_DIR = Path(__file__).with_name("letter-icons")
@@ -81,7 +82,7 @@ else:
 # https://urllib3.readthedocs.io/en/latest/advanced-usage.html#customizing-pool-behavior
 adapter = requests.adapters.HTTPAdapter(pool_connections=10,
                                         pool_maxsize=100,
-                                        max_retries=0,
+                                        max_retries=Retry(total=3, redirect=3),
                                         pool_block=False)
 
 rs = requests.Session()
