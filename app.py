@@ -146,7 +146,7 @@ def find_icons(url):
             href = urllib.parse.urljoin(url, tag.attrs["href"])
             type = tag.attrs.get("type", "")
             if not type:
-                if is_svg(url=href):
+                if is_svg(href):
                     type = SVG_MIMETYPE
             size = tag.attrs.get("sizes", "0x0")
             if size == "any":
@@ -253,14 +253,14 @@ def icon():
         try:
             log.info(f"Requesting {icon['url']}")
             image = request_image(icon["url"])
-            type = icon.get("type", "")
-            if not is_svg(type=type, image=image):
+            # SVG images are strings and can be scaled to any size.
+            if isinstance(image, bytes):
                 with PIL.Image.open(io.BytesIO(image)) as pi:
                     log.info(f"Icon seems to be {pi.width}x{pi.height}")
                     if min(pi.width, pi.height) < size:
                         log.info(f"Skipping as less than requested {size}")
                         continue
-            image = resize_image(image, size, type)
+            image = resize_image(image, size)
             cache.set(key, image, ex=rex(3, 5))
             return make_response(image, format)
         except Exception as error:
@@ -303,8 +303,7 @@ def image():
     try:
         log.info(f"Requesting {url}")
         image = request_image(url, max_size=1)
-        type = SVG_MIMETYPE if is_svg(url=url, image=image) else ""
-        image = resize_image(image, size, type)
+        image = resize_image(image, size)
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
     except Exception as error:
@@ -313,12 +312,8 @@ def image():
         cache.set(key, image, ex=7200)
         return make_response(image, format, 7200)
 
-def is_svg(url="", type="", image=None):
-    return (url.split("?")[0].endswith(".svg") or
-            type == SVG_MIMETYPE or
-            (isinstance(image, str) and
-             (image.lstrip().startswith("<svg") or
-              image.rstrip().endswith("</svg>"))))
+def is_svg(url, type=""):
+    return url.split("?")[0].endswith(".svg") or type == SVG_MIMETYPE
 
 def is_url_valid(url):
     # url is really usually just [host+]domain.
@@ -369,7 +364,7 @@ def request_image(url, max_size=1):
         if length.isdigit() and int(length) > max_bytes:
             raise ValueError("Too large")
         content_type = response.headers.get("content-type", "").lower()
-        if is_svg(url=url, type=content_type):
+        if is_svg(url, content_type):
             # SVG, return as string.
             image = response.text
         else:
@@ -380,9 +375,9 @@ def request_image(url, max_size=1):
             raise ValueError("Too large")
         return image
 
-def resize_image(image, size, type=""):
-    """Resize `image` to `size` and return PNG bytes."""
-    if is_svg(type=type, image=image):
+def resize_image(image, size):
+    """Resize SVG string or raster bytes `image` to `size` and return PNG bytes."""
+    if isinstance(image, str):
         image = cairosvg.svg2png(bytestring=image.encode("utf-8"),
                                  output_width=size,
                                  output_height=size)
