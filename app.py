@@ -101,8 +101,7 @@ def facebook_icon():
         log.info(f"Found in cache: {key}")
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
-    url = "https://graph.facebook.com/{user}/picture?type=large"
-    url = url.format(user=urllib.parse.quote(user))
+    url = f"https://graph.facebook.com/{urllib.parse.quote(user)}/picture?type=large"
     try:
         log.info(f"Requesting {url}")
         image = request_image(url, max_size=5)
@@ -129,8 +128,7 @@ def favicon():
         log.info(f"Found in cache: {key}")
         image, ttl = get_from_cache(key)
         return make_response(image, format, ttl)
-    url = "https://www.google.com/s2/favicons?domain={domain}"
-    url = url.format(domain=urllib.parse.quote(domain))
+    url = f"https://www.google.com/s2/favicons?domain={urllib.parse.quote(domain)}"
     try:
         log.info(f"Requesting {url}")
         image = request_image(url, max_size=1)
@@ -230,8 +228,7 @@ def google_search_suggestions():
         log.info(f"Found in cache: {key}")
         data, ttl = get_from_cache(key)
         return make_response(pickle.loads(data), "json", ttl)
-    url = "https://suggestqueries.google.com/complete/search?output=toolbar&q={query}&hl={lang}"
-    url = url.format(query=urllib.parse.quote_plus(query), lang=lang)
+    url = f"https://suggestqueries.google.com/complete/search?output=toolbar&q={urllib.parse.quote_plus(query)}&hl={lang}"
     try:
         log.info(f"Requesting {url}")
         response = rs.get(url, timeout=5)

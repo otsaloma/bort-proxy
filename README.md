@@ -1,5 +1,4 @@
-Bort Proxy
-==========
+# Bort Proxy
 
 A caching proxy server for [Bort.io](https://bort.io/). Current proxied
 data includes website icons and search suggestions.
