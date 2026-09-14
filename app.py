@@ -98,9 +98,7 @@ def facebook_icon():
     format = flask.request.args.get("format", "png")
     key = f"facebook-icon:{user}:{size}"
     if cache.exists(key):
-        log.info(f"Found in cache: {key}")
-        image, ttl = get_from_cache(key)
-        return make_response(image, format, ttl)
+        return make_cached_response(key, format)
     url = f"https://graph.facebook.com/{urllib.parse.quote(user)}/picture?type=large"
     try:
         log.info(f"Requesting {url}")
@@ -125,9 +123,7 @@ def favicon():
     format = flask.request.args.get("format", "png")
     key = f"favicon:{domain}"
     if cache.exists(key):
-        log.info(f"Found in cache: {key}")
-        image, ttl = get_from_cache(key)
-        return make_response(image, format, ttl)
+        return make_cached_response(key, format)
     url = f"https://www.google.com/s2/favicons?domain={urllib.parse.quote(domain)}"
     try:
         log.info(f"Requesting {url}")
@@ -175,10 +171,6 @@ def get_cache_control(max_age):
     """Return a Cache-Control header for `max_age`."""
     return f"public, max-age={max_age:d}"
 
-def get_from_cache(key):
-    """Return value, ttl for `key` from cache."""
-    return cache.get(key), cache.ttl(key)
-
 def get_letter(url):
     """Return letter to represent `url`."""
     if "://" not in url:
@@ -225,9 +217,7 @@ def google_search_suggestions():
     lang = flask.request.args.get("lang", "en")
     key = f"google-search-suggestions:{query}:{lang}"
     if cache.exists(key):
-        log.info(f"Found in cache: {key}")
-        data, ttl = get_from_cache(key)
-        return make_response(pickle.loads(data), "json", ttl)
+        return make_cached_response(key, "json")
     url = f"https://suggestqueries.google.com/complete/search?output=toolbar&q={urllib.parse.quote_plus(query)}&hl={lang}"
     try:
         log.info(f"Requesting {url}")
@@ -255,9 +245,7 @@ def icon():
     format = flask.request.args.get("format", "png")
     key = f"icon:{url}:{size}"
     if cache.exists(key):
-        log.info(f"Found in cache: {key}")
-        image, ttl = get_from_cache(key)
-        return make_response(image, format, ttl)
+        return make_cached_response(key, format)
     try:
         log.info(f"Parsing {url}")
         icons = list(find_icons(url))
@@ -298,9 +286,7 @@ def icons():
     url = flask.request.args["url"]
     key = f"icons:{url}"
     if cache.exists(key):
-        log.info(f"Found in cache: {key}")
-        data, ttl = get_from_cache(key)
-        return make_response(pickle.loads(data), "json", ttl)
+        return make_cached_response(key, "json")
     try:
         log.info(f"Parsing {url}")
         icons = list(find_icons(url))
@@ -322,9 +308,7 @@ def image():
     format = flask.request.args.get("format", "png")
     key = f"image:{url}:{size}"
     if cache.exists(key):
-        log.info(f"Found in cache: {key}")
-        image, ttl = get_from_cache(key)
-        return make_response(image, format, ttl)
+        return make_cached_response(key, format)
     try:
         log.info(f"Requesting {url}")
         image = request_image(url, max_size=1)
@@ -354,6 +338,14 @@ def is_svg(url="", type="", image=None):
 def is_url_valid(url):
     # url is really usually just [host+]domain.
     return ("." in url and len(url) >= 4) or ("localhost" in url)
+
+def make_cached_response(key, format):
+    """Return response 200 for `key` found in cache as `format`."""
+    log.info(f"Found in cache: {key}")
+    data = cache.get(key)
+    if format == "json":
+        data = pickle.loads(data)
+    return make_response(data, format, cache.ttl(key))
 
 def make_response(data, format, max_age=None):
     """Return response 200 for `data` as `format`."""
@@ -452,9 +444,7 @@ def twitter_icon():
     format = flask.request.args.get("format", "png")
     key = f"twitter-icon:{user}:{size}"
     if cache.exists(key):
-        log.info(f"Found in cache: {key}")
-        image, ttl = get_from_cache(key)
-        return make_response(image, format, ttl)
+        return make_cached_response(key, format)
     letter = user[0].lower() if user else "x"
     image = get_letter_icon(letter)
     image = resize_image(image, size)
