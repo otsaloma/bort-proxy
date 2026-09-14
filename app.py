@@ -23,7 +23,6 @@
 import base64
 import bs4
 import cairosvg
-import contextlib
 import filetype
 import flask
 import functools
@@ -187,12 +186,12 @@ def get_letter_icon(letter):
         return path.read_bytes()
     return FALLBACK_PNG
 
-def get_page(url, timeout=15):
+def get_page(url):
     """Return evaluated `url`, HTML page as text."""
     if not is_url_valid(url):
         raise Exception("Not a valid URL")
     if "://" in url:
-        response = rs.get(url, timeout=timeout)
+        response = rs.get(url, timeout=15)
         blurb = response.text[:300].strip().replace("\n", " ")
         log.info(f"GET {url} {response.status_code} {blurb}...")
         response.raise_for_status()
@@ -354,34 +353,29 @@ def make_response(data, format, max_age=None):
     # Content-Length is set automatically from data.
     return flask.Response(data, 200, headers)
 
-def request_image(url, max_size=1, timeout=15):
+def request_image(url, max_size=1):
     """Request and return image at `url` at most `max_size` MB."""
     if not is_url_valid(url):
         raise Exception("Not a valid URL")
-    # Avoid getting caught reading insanely large files.
-    # http://docs.python-requests.org/en/master/user/advanced/#body-content-workflow
     if url in blacklist:
         raise ValueError("URL blacklisted")
-    max_size = max_size * 1024 * 1024
-    with contextlib.closing(rs.get(
-            url, timeout=timeout, stream=True)) as response:
+    # Avoid getting caught reading insanely large files.
+    # http://docs.python-requests.org/en/master/user/advanced/#body-content-workflow
+    max_bytes = max_size * 1024 * 1024
+    with rs.get(url, timeout=15, stream=True) as response:
         log.info(f"GET {url} {response.status_code}...")
         response.raise_for_status()
-        if ("content-length" in response.headers and
-            response.headers["content-length"].isdigit() and
-            int(response.headers["content-length"]) > max_size):
+        length = response.headers.get("content-length", "")
+        if length.isdigit() and int(length) > max_bytes:
             raise ValueError("Too large")
         content_type = response.headers.get("content-type", "").lower()
         if is_svg(url=url, type=content_type):
             # SVG, return as string.
             image = response.text
-            if len(image) > max_size:
-                blacklist.add(url)
-                raise ValueError("Too large")
-            return image
-        # Raster, return as bytes.
-        image = response.raw.read(max_size+1, decode_content=True)
-        if len(image) > max_size:
+        else:
+            # Raster, return as bytes.
+            image = response.raw.read(max_bytes + 1, decode_content=True)
+        if len(image) > max_bytes:
             blacklist.add(url)
             raise ValueError("Too large")
         return image
