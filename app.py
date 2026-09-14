@@ -167,10 +167,6 @@ def find_icons(url):
         found[href] = 0
         yield dict(url=href, fallback=True)
 
-def get_cache_control(max_age):
-    """Return a Cache-Control header for `max_age`."""
-    return f"public, max-age={max_age:d}"
-
 def get_letter(url):
     """Return letter to represent `url`."""
     if "://" not in url:
@@ -349,34 +345,24 @@ def make_cached_response(key, format):
 
 def make_response(data, format, max_age=None):
     """Return response 200 for `data` as `format`."""
+    if not max_age:
+        max_age = 3600 if format == "json" else random.randint(1, 3) * 86400
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": f"public, max-age={max_age:d}",
+    }
     if format == "base64":
-        text = base64.b64encode(data)
-        max_age = max_age or random.randint(1, 3) * 86400
-        return flask.Response(text, 200, {
-            "Access-Control-Allow-Origin": "*",
-            "Content-Type": "text/plain",
-            "Content-Encoding": "UTF-8",
-            "Content-Length": str(len(text)),
-            "Cache-Control": get_cache_control(max_age),
-        })
-    if format == "json":
-        text = json.dumps(data, ensure_ascii=False)
-        max_age = max_age or 3600
-        return flask.Response(text, 200, {
-            "Access-Control-Allow-Origin": "*",
-            "Content-Type": "application/json",
-            "Content-Encoding": "UTF-8",
-            "Content-Length": str(len(text)),
-            "Cache-Control": get_cache_control(max_age),
-        })
-    if format == "png":
-        max_age = max_age or random.randint(1, 3) * 86400
-        return flask.Response(data, 200, {
-            "Access-Control-Allow-Origin": "*",
-            "Content-Type": "image/png",
-            "Content-Length": str(len(data)),
-            "Cache-Control": get_cache_control(max_age),
-        })
+        data = base64.b64encode(data)
+        headers["Content-Type"] = "text/plain"
+        headers["Content-Encoding"] = "UTF-8"
+    elif format == "json":
+        data = json.dumps(data, ensure_ascii=False)
+        headers["Content-Type"] = "application/json"
+        headers["Content-Encoding"] = "UTF-8"
+    else:
+        headers["Content-Type"] = "image/png"
+    # Content-Length is set automatically from data.
+    return flask.Response(data, 200, headers)
 
 def request_image(url, max_size=1, timeout=15):
     """Request and return image at `url` at most `max_size` MB."""
