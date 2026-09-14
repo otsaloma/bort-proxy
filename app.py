@@ -46,13 +46,6 @@ from urllib3.util.retry import Retry
 FALLBACK_PNG = open("letter-icons/x.png", "rb").read()
 LETTER_ICON_DIR = Path(__file__).with_name("letter-icons")
 
-LINK_REL_PATTERNS = [
-    re.compile("^apple-touch-icon$"),
-    re.compile("^apple-touch-icon-precomposed$"),
-    re.compile("^icon$"),
-    re.compile("^shortcut icon$"),
-]
-
 SVG_MIMETYPE = "image/svg+xml"
 
 app = flask.Flask(__name__)
@@ -141,20 +134,18 @@ def find_icons(url):
     found = {}
     url, page = get_page(url)
     soup = bs4.BeautifulSoup(page, "html.parser")
-    for pattern in LINK_REL_PATTERNS:
-        for tag in soup.find_all("link", dict(rel=pattern)):
+    for rel in ["apple-touch-icon", "apple-touch-icon-precomposed", "icon", "shortcut icon"]:
+        for tag in soup.find_all("link", rel=rel):
             href = urllib.parse.urljoin(url, tag.attrs["href"])
             type = tag.attrs.get("type", "")
-            if not type:
-                if is_svg(href):
-                    type = SVG_MIMETYPE
+            if not type and is_svg(href):
+                type = SVG_MIMETYPE
             size = tag.attrs.get("sizes", "0x0")
             if size == "any":
                 size = "1000x1000"
             size = int(size.split("x")[0])
-            if href in found:
-                if size <= found[href]:
-                    continue
+            if href in found and size <= found[href]:
+                continue
             yield dict(url=href, type=type, size=size)
             found[href] = size
     # Fall back on looking for icons at the server root.
@@ -162,7 +153,7 @@ def find_icons(url):
         href = urllib.parse.urljoin(url, path)
         if href in found: continue
         found[href] = 0
-        yield dict(url=href, fallback=True)
+        yield dict(url=href, type="", size=0, fallback=True)
 
 def get_letter(url):
     """Return letter to represent `url`."""
@@ -241,14 +232,12 @@ def icon():
         return make_cached_response(key, format)
     try:
         log.info(f"Parsing {url}")
-        icons = list(find_icons(url))
-        icons.sort(key=lambda x: x.get("size", 0) or 1000)
+        icons = sorted(find_icons(url), key=lambda x: x["size"] or 1000)
     except Exception as error:
         log.error(f"Error parsing {flask.request.full_path}: {error!s}")
         icons = []
     for icon in icons:
         # Ignore icons with a known size less than requested.
-        icon.setdefault("size", 0)
         if 0 < icon["size"] < size: continue
         try:
             log.info(f"Requesting {icon['url']}")
@@ -284,9 +273,9 @@ def icons():
     except Exception as error:
         log.error(f"Error parsing {flask.request.full_path}: {error!s}")
         icons = []
-    for i in list(range(len(icons) - 1, -1, -1)):
-        if icons[i].get("size", 1) < 1: del icons[i]["size"]
-        if icons[i].get("fallback", False): del icons[i]
+    icons = [x for x in icons if not x.get("fallback")]
+    for icon in icons:
+        if icon["size"] < 1: del icon["size"]
     data = dict(icons=icons)
     cache.set(key, pickle.dumps(data), ex=300)
     return make_response(data, "json", 300)
