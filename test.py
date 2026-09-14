@@ -8,7 +8,7 @@ HOST = os.environ.get("HOST", "http://localhost:5000")
 
 def test(path):
     url = urllib.parse.urljoin(HOST, path)
-    print(format(url), end=" ")
+    print(url, end=" ")
     response = requests.get(url, timeout=10)
     print(response.status_code)
     response.raise_for_status()

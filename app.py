@@ -43,8 +43,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib3.util.retry import Retry
 
-FALLBACK_PNG = open("letter-icons/x.png", "rb").read()
 LETTER_ICON_DIR = Path(__file__).with_name("letter-icons")
+FALLBACK_PNG = (LETTER_ICON_DIR / "x.png").read_bytes()
 
 SVG_MIMETYPE = "image/svg+xml"
 
@@ -159,14 +159,13 @@ def get_letter(url):
     """Return letter to represent `url`."""
     if "://" not in url:
         url = f"http://{url}"
-    url = urllib.parse.urlparse(url).netloc
-    url = url.split(".")
-    url = url[-2] if len(url) > 1 else url[0]
-    return url[0].lower() if url else "x"
+    parts = urllib.parse.urlparse(url).netloc.split(".")
+    name = parts[-2] if len(parts) > 1 else parts[0]
+    return name[0].lower() if name else "x"
 
 @functools.lru_cache(256)
 def get_letter_icon(letter):
-    """Return letter icon PNG bytes for `url`."""
+    """Return letter icon PNG bytes for `letter`."""
     path = LETTER_ICON_DIR / f"{letter}.png"
     if path.exists():
         return path.read_bytes()
@@ -179,8 +178,6 @@ def get_letter_icon(letter):
 
 def get_page(url):
     """Return evaluated `url`, HTML page as text."""
-    if not is_url_valid(url):
-        raise Exception("Not a valid URL")
     if "://" in url:
         response = rs.get(url, timeout=15)
         blurb = response.text[:300].strip().replace("\n", " ")
