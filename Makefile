@@ -3,28 +3,19 @@
 include .env
 export
 
-PYTHON := python3.13
-
 check:
-	flake8 app.py
+	uv run flake8 app.py
 
 clean:
 	rm -rf __pycache__
 
 run:
-	flask --app=app.py run --debug
+	uv run flask --app=app.py run --debug
 
 test:
-	./test.py
+	uv run ./test.py
 
 test-production:
-	HOST=https://bort-proxy.onrender.com ./test.py
+	HOST=https://bort-proxy.onrender.com uv run ./test.py
 
-venv:
-	rm -rf venv
-	$(PYTHON) -m venv venv
-	. venv/bin/activate && \
-	pip install -U pip setuptools wheel && \
-	pip install -r requirements.txt
-
-.PHONY: check clean run test test-production venv
+.PHONY: check clean run test test-production

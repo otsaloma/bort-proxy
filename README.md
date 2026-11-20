@@ -5,8 +5,9 @@ data includes website icons and search suggestions.
 
 ## Development
 
+Requires [uv](https://docs.astral.sh/uv/).
+
 ```bash
-make venv
 make run
 ```
 
@@ -19,7 +20,8 @@ Check `app.py` for all API endpoints and parameters.
 Run with gunicorn.
 
 ```bash
-gunicorn app:app --workers 2 --threads 16 --max-requests 100
+uv sync --frozen --no-dev
+uv run --no-sync gunicorn app:app --workers 2 --threads 16 --max-requests 100
 ```
 
 Define `REDIS_URL` in the environment pointing to a small Redis instance
