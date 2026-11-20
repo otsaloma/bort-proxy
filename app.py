@@ -23,7 +23,6 @@
 import base64
 import bs4
 import cairosvg
-import filetype
 import flask
 import functools
 import io
@@ -118,7 +117,7 @@ def favicon():
     try:
         log.info(f"Requesting {url}")
         image = request_image(url, max_size=1)
-        if filetype.guess_mime(image) != "image/png":
+        if not image.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("Non-PNG data received")
         cache.set(key, image, ex=rex(3, 5))
         return make_response(image, format)
