@@ -324,11 +324,9 @@ def make_response(data, format, max_age=None):
     if format == "base64":
         data = base64.b64encode(data)
         headers["Content-Type"] = "text/plain"
-        headers["Content-Encoding"] = "UTF-8"
     elif format == "json":
         data = json.dumps(data, ensure_ascii=False)
-        headers["Content-Type"] = "application/json"
-        headers["Content-Encoding"] = "UTF-8"
+        headers["Content-Type"] = "application/json; charset=utf-8"
     else:
         headers["Content-Type"] = "image/png"
     # Content-Length is set automatically from data.
